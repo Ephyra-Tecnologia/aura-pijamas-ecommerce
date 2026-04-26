@@ -1,0 +1,96 @@
+'use client'
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+export interface Product {
+  id: number
+  name: string
+  category: string
+  price: number
+  oldPrice?: number | null
+  badge?: string | null
+  colors: string[]
+  desc: string
+  image?: string
+  active?: boolean
+}
+
+export interface CartItem {
+  id: number
+  name: string
+  category: string
+  price: number
+  size: string
+  color: string
+  qty: number
+}
+
+interface CartStore {
+  items: CartItem[]
+  addItem: (product: Product, size: string) => void
+  removeItem: (index: number) => void
+  total: () => number
+  count: () => number
+}
+
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      addItem: (product, size) => {
+        const existing = get().items.find(
+          i => i.id === product.id && i.size === size
+        )
+        if (existing) {
+          set(state => ({
+            items: state.items.map(i =>
+              i.id === product.id && i.size === size ? { ...i, qty: i.qty + 1 } : i
+            )
+          }))
+        } else {
+          set(state => ({
+            items: [...state.items, {
+              id: product.id,
+              name: product.name,
+              category: product.category,
+              price: product.price,
+              size,
+              color: product.colors[0],
+              qty: 1
+            }]
+          }))
+        }
+      },
+      removeItem: (index) => {
+        set(state => ({ items: state.items.filter((_, i) => i !== index) }))
+      },
+      total: () => get().items.reduce((s, i) => s + i.price * i.qty, 0),
+      count: () => get().items.reduce((s, i) => s + i.qty, 0),
+    }),
+    { name: 'aura_cart' }
+  )
+)
+
+// UI state (não persiste)
+interface UIStore {
+  cartOpen: boolean
+  modalProduct: Product | null
+  toast: string | null
+  setCartOpen: (v: boolean) => void
+  openModal: (p: Product) => void
+  closeModal: () => void
+  showToast: (msg: string) => void
+}
+
+export const useUIStore = create<UIStore>((set) => ({
+  cartOpen: false,
+  modalProduct: null,
+  toast: null,
+  setCartOpen: (v) => set({ cartOpen: v }),
+  openModal: (p) => set({ modalProduct: p }),
+  closeModal: () => set({ modalProduct: null }),
+  showToast: (msg) => {
+    set({ toast: msg })
+    setTimeout(() => set({ toast: null }), 3000)
+  }
+}))
