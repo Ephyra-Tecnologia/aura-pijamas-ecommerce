@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useCartStore, useUIStore } from '@/store/cart'
+import Image from 'next/image'
 
 export function Editorial() {
   const cols = [
@@ -131,8 +132,14 @@ export function Footer() {
     <footer>
       <div className="footer-grid">
         <div>
-          <Link href="/" style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: 'var(--cream)', textDecoration: 'none', letterSpacing: '0.08em' }}>
-            Aura <em style={{ fontStyle: 'italic', color: 'var(--earth)' }}>Pijamas</em>
+          <Link href="/" style={{ display: 'inline-block' }}>
+            <Image
+              src="/assets/aura-footer.png"
+              alt="Aura Pijamas"
+              height={52}
+              width={180}
+              style={{ objectFit: 'contain' }}
+            />
           </Link>
           <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--stone)', marginTop: 16, maxWidth: 240 }}>
             Pijamas feitos para quem valoriza o descanso como ritual.
