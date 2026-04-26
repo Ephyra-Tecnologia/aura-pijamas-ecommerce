@@ -257,7 +257,11 @@ export function ProductModal() {
         </div>
         <div className="modal-content">
           <button className="modal-close" onClick={closeModal} style={{ position: 'absolute', top: 16, right: 16 }}>✕</button>
-          <p className="modal-category">{modalProduct.category}</p>
+          <p className="modal-category">
+            {typeof modalProduct.category === 'string' 
+              ? modalProduct.category 
+              : modalProduct.category?.name || ''}
+          </p>
           <h2 className="modal-name">{modalProduct.name}</h2>
           <p className="modal-price">{fmt(modalProduct.price)}</p>
           <p className="modal-desc">{modalProduct.desc}</p>
@@ -271,7 +275,7 @@ export function ProductModal() {
           </div>
           <p className="size-label">Cor</p>
           <div className="color-grid">
-            {modalProduct.colors.map((c, i) => (
+            {(modalProduct.colors ?? []).map((c, i) => (
               <div
                 key={i}
                 className={`color-swatch ${selectedColor === i ? 'active' : ''}`}
