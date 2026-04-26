@@ -24,6 +24,7 @@ export interface CartItem {
   price: number
   size: string
   color: string
+  image?: string
   qty: number
 }
 
@@ -62,6 +63,7 @@ export const useCartStore = create<CartStore>()(
               price: product.price,
               size,
               color: product.colors?.[0] || '#E8DDD0',
+              image: product.images?.[0] || product.image,
               qty: 1
             }]
           }))
