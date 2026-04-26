@@ -193,7 +193,7 @@ npx prisma studio
 
 ## 🌙 Sobre o projeto
 
-A **Aura Pijamas** é uma loja de pijamas artesanal focada em conforto e presença. Este e-commerce foi construído do zero em um final de semana, priorizando:
+A **Aura Pijamas** é uma loja de pijamas artesanal focada em conforto e presença. Este e-commerce foi construído do zero por um especialista em infraestrutura se aventurando no desenvolvimento web.
 
 - **Controle total** — sem dependência de plataformas de e-commerce
 - **Custo mínimo** — ~R$25/mês de infraestrutura fixa

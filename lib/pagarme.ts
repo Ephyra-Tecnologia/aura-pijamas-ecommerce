@@ -1,6 +1,5 @@
 const PAGARME_API = 'https://api.pagar.me/core/v5'
 const SECRET_KEY = process.env.PAGARME_SECRET_KEY!
-
 const headers = {
   'Content-Type': 'application/json',
   'Authorization': `Basic ${Buffer.from(SECRET_KEY + ':').toString('base64')}`,
@@ -22,6 +21,7 @@ export async function criarPedidoPagarme(data: {
         name: data.name,
         email: data.email,
         type: 'individual',
+        document: data.document.replace(/\D/g, ''),
         phones: {
           mobile_phone: {
             country_code: '55',
@@ -36,14 +36,20 @@ export async function criarPedidoPagarme(data: {
         quantity: item.quantity,
         code: item.name.toLowerCase().replace(/\s/g, '-'),
       })),
-      shipping: data.shipping,
+      shipping: {
+        amount: data.shipping.amount,
+        description: 'Entrega',
+        address: data.shipping.address,
+      },
       payments: [{
         payment_method: 'pix',
         pix: { expires_in: 3600 }
       }]
     })
   })
-  return res.json()
+  const result = await res.json()
+  console.log('PAGARME RESPONSE:', JSON.stringify(result, null, 2))
+  return result
 }
 
 export async function criarCobrancaCartao(orderId: string, cardData: {
