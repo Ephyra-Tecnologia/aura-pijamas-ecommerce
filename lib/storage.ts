@@ -1,13 +1,9 @@
 import { Storage } from '@google-cloud/storage'
-
-const privateKey = process.env.GCS_PRIVATE_KEY?.replace(/\\n/g, '\n')
+import path from 'path'
 
 const storage = new Storage({
   projectId: process.env.GCS_PROJECT_ID,
-  credentials: {
-    client_email: process.env.GCS_CLIENT_EMAIL,
-    private_key: privateKey,
-  },
+  keyFilename: process.env.GCS_KEY_FILE || '/root/gcs-credentials.json',
 })
 
 const bucket = storage.bucket(process.env.GCS_BUCKET_NAME!)
@@ -23,7 +19,6 @@ export async function uploadImage(
   await blob.save(file, {
     contentType: mimetype,
     public: true,
-    gzip: false,
   })
 
   await blob.makePublic()
