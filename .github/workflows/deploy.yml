@@ -8,17 +8,17 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Auth GCP
+        uses: google-github-actions/auth@v2
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /root/aura-pijamas-ecommerce
-            git stash
-            git pull
-            npm install
-            npx prisma generate
-            npm run build
-            pm2 restart aura-pijamas
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy via IAP tunnel
+        run: |
+          gcloud compute ssh root@srv-qa-cvlt \
+            --zone=southamerica-east1-a \
+            --tunnel-through-iap \
+            --command="cd /root/aura-pijamas-ecommerce && git stash && git pull && npm install && npx prisma generate && npm run build && pm2 restart aura-pijamas"
