@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { useCartStore } from '@/store/cart'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -25,13 +24,17 @@ interface FormData {
 }
 
 export default function CheckoutPage() {
-  const { items, total, removeItem } = useCartStore()
-  const router = useRouter()
+  const { items, total } = useCartStore()
   const [step, setStep] = useState(1)
   const [loadingCep, setLoadingCep] = useState(false)
   const [loadingFrete, setLoadingFrete] = useState(false)
   const [freteOptions, setFreteOptions] = useState<FreteOption[]>([])
   const [selectedFrete, setSelectedFrete] = useState<FreteOption | null>(null)
+  const [documento, setDocumento] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
+  const [pixData, setPixData] = useState<{ qrCode: string; qrCodeUrl: string } | null>(null)
+  const [processingPayment, setProcessingPayment] = useState(false)
+  const [orderId, setOrderId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>({
     name: '', email: '', phone: '',
     zipCode: '', address: '', number: '',
@@ -40,7 +43,7 @@ export default function CheckoutPage() {
 
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
 
-  const set = (key: keyof FormData, value: string) =>
+  const setField = (key: keyof FormData, value: string) =>
     setForm(f => ({ ...f, [key]: value }))
 
   const buscarCep = async (cep: string) => {
@@ -65,7 +68,6 @@ export default function CheckoutPage() {
 
   const calcularFrete = async () => {
     setLoadingFrete(true)
-    // Placeholder até integrar Melhor Envio
     await new Promise(r => setTimeout(r, 800))
     setFreteOptions([
       { name: 'PAC', price: 18.90, days: 8 },
@@ -75,6 +77,50 @@ export default function CheckoutPage() {
   }
 
   const totalFinal = total() + (selectedFrete?.price || 0)
+
+  const handlePayment = async () => {
+    setProcessingPayment(true)
+    try {
+      const res = await fetch('/api/pagamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: {
+            name: form.name,
+            email: form.email,
+            phone: form.phone,
+            document: documento,
+          },
+          items: items.map(item => ({
+            name: item.name,
+            amount: Math.round(item.price * 100),
+            quantity: item.qty,
+          })),
+          shipping: {
+            amount: Math.round((selectedFrete?.price || 0) * 100),
+            address: {
+              line_1: `${form.address}, ${form.number}`,
+              zip_code: form.zipCode.replace(/\D/g, ''),
+              city: form.city,
+              state: form.state,
+              country: 'BR',
+            }
+          },
+          cartItems: items,
+          total: totalFinal,
+        })
+      })
+
+      const data = await res.json()
+      if (data.pix) {
+        setPixData(data.pix)
+        setOrderId(data.orderId)
+      }
+    } catch {
+      alert('Erro ao processar pagamento. Tente novamente.')
+    }
+    setProcessingPayment(false)
+  }
 
   if (items.length === 0) return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', gap: 24 }}>
@@ -100,7 +146,7 @@ export default function CheckoutPage() {
         <div>
           {/* Steps */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 40, alignItems: 'center' }}>
-            {['Dados', 'Endereço', 'Revisão'].map((s, i) => (
+            {['Dados', 'Endereço', 'Pagamento'].map((s, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: '50%',
@@ -133,7 +179,7 @@ export default function CheckoutPage() {
                   <input
                     type={field.type}
                     value={form[field.key]}
-                    onChange={e => set(field.key, e.target.value)}
+                    onChange={e => setField(field.key, e.target.value)}
                     required
                     style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
                   />
@@ -159,7 +205,7 @@ export default function CheckoutPage() {
                   <input
                     type="text"
                     value={form.zipCode}
-                    onChange={e => { set('zipCode', e.target.value); buscarCep(e.target.value) }}
+                    onChange={e => { setField('zipCode', e.target.value); buscarCep(e.target.value) }}
                     maxLength={9}
                     placeholder="00000-000"
                     style={{ flex: 1, background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
@@ -179,7 +225,7 @@ export default function CheckoutPage() {
                   <input
                     type="text"
                     value={form[field.key]}
-                    onChange={e => set(field.key, e.target.value)}
+                    onChange={e => setField(field.key, e.target.value)}
                     style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
                   />
                 </div>
@@ -188,11 +234,11 @@ export default function CheckoutPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>Cidade</label>
-                  <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
+                  <input type="text" value={form.city} onChange={e => setField('city', e.target.value)} style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>Estado</label>
-                  <input type="text" value={form.state} onChange={e => set('state', e.target.value)} maxLength={2} style={{ width: 60, background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
+                  <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>UF</label>
+                  <input type="text" value={form.state} onChange={e => setField('state', e.target.value)} maxLength={2} style={{ width: 60, background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
                 </div>
               </div>
 
@@ -244,10 +290,10 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* Step 3 — Revisão */}
-          {step === 3 && (
+          {/* Step 3 — Pagamento */}
+          {step === 3 && !pixData && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>Revisão do pedido</h2>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>Pagamento</h2>
 
               <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
                 <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>Entrega</h3>
@@ -263,7 +309,41 @@ export default function CheckoutPage() {
               </div>
 
               <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
-                <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>Total</h3>
+                <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>CPF</h3>
+                <input
+                  type="text"
+                  placeholder="000.000.000-00"
+                  value={documento}
+                  onChange={e => setDocumento(e.target.value)}
+                  maxLength={14}
+                  style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
+                />
+              </div>
+
+              <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
+                <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>Forma de pagamento</h3>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {(['pix', 'credit_card'] as const).map(method => (
+                    <div
+                      key={method}
+                      onClick={() => setPaymentMethod(method)}
+                      style={{
+                        flex: 1, border: `1px solid ${paymentMethod === method ? 'var(--dark)' : 'var(--sand)'}`,
+                        padding: '16px', cursor: 'pointer', textAlign: 'center',
+                        background: paymentMethod === method ? 'var(--sand)' : 'white',
+                      }}
+                    >
+                      <div style={{ fontSize: 20, marginBottom: 4 }}>{method === 'pix' ? '⚡' : '💳'}</div>
+                      <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--dark)' }}>
+                        {method === 'pix' ? 'Pix' : 'Cartão'}
+                      </div>
+                      {method === 'pix' && <div style={{ fontSize: 11, color: 'var(--earth)', marginTop: 4 }}>Aprovação imediata</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--stone)', marginBottom: 8 }}>
                   <span>Subtotal</span><span>{fmt(total())}</span>
                 </div>
@@ -280,12 +360,39 @@ export default function CheckoutPage() {
                   Voltar
                 </button>
                 <button
-                  onClick={() => alert('Integração com Pagar.me em breve!')}
-                  style={{ flex: 2, background: 'var(--bark)', color: 'var(--cream)', border: 'none', padding: '14px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}
+                  onClick={handlePayment}
+                  disabled={processingPayment || !documento}
+                  style={{ flex: 2, background: 'var(--bark)', color: 'var(--cream)', border: 'none', padding: '14px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: processingPayment ? 'not-allowed' : 'pointer', opacity: processingPayment || !documento ? 0.7 : 1 }}
                 >
-                  Ir para pagamento →
+                  {processingPayment ? 'Processando...' : paymentMethod === 'pix' ? 'Gerar Pix →' : 'Pagar com cartão →'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* PIX GERADO */}
+          {pixData && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ fontSize: 48 }}>⚡</div>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300 }}>Pix gerado!</h2>
+              <p style={{ fontSize: 14, color: 'var(--stone)', maxWidth: 360, lineHeight: 1.7 }}>
+                Escaneie o QR Code ou copie o código Pix abaixo. O pedido será confirmado automaticamente após o pagamento.
+              </p>
+              {pixData.qrCodeUrl && (
+                <img src={pixData.qrCodeUrl} alt="QR Code Pix" style={{ width: 200, height: 200 }} />
+              )}
+              <div style={{ width: '100%', background: 'white', border: '1px solid var(--sand)', padding: '16px', wordBreak: 'break-all', fontSize: 11, color: 'var(--stone)', textAlign: 'left' }}>
+                {pixData.qrCode}
+              </div>
+              <button
+                onClick={() => { navigator.clipboard.writeText(pixData!.qrCode); alert('Código copiado!') }}
+                style={{ background: 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '14px 32px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}
+              >
+                Copiar código Pix
+              </button>
+              <p style={{ fontSize: 12, color: 'var(--stone)' }}>
+                Pedido #{orderId?.slice(-8).toUpperCase()} · Válido por 1 hora
+              </p>
             </div>
           )}
         </div>
@@ -298,7 +405,7 @@ export default function CheckoutPage() {
               {items.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{ width: 48, height: 64, background: 'var(--sand)', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
-                     {item.image ? (
+                    {item.image ? (
                       <Image src={item.image} alt={item.name} fill style={{ objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: '100%', height: '100%', background: 'var(--sand)' }} />
