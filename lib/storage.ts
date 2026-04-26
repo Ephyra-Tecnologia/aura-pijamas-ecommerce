@@ -1,5 +1,4 @@
 import { Storage } from '@google-cloud/storage'
-import path from 'path'
 
 const storage = new Storage({
   projectId: process.env.GCS_PROJECT_ID,
@@ -18,8 +17,7 @@ export async function uploadImage(
 
   await blob.save(file, {
     contentType: mimetype,
-    public: true,
   })
-  
+
   return `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${uniqueName}`
 }

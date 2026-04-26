@@ -3,20 +3,22 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export interface Product {
-  id: number
+  id: string | number
   name: string
-  category: string
+  category?: string | { name: string } | null
   price: number
   oldPrice?: number | null
   badge?: string | null
-  colors: string[]
-  desc: string
+  colors?: string[]
+  desc?: string
+  description?: string
   image?: string
+  images?: string[]
   active?: boolean
 }
 
 export interface CartItem {
-  id: number
+  id: string | number
   name: string
   category: string
   price: number
@@ -41,6 +43,10 @@ export const useCartStore = create<CartStore>()(
         const existing = get().items.find(
           i => i.id === product.id && i.size === size
         )
+        const categoryName = typeof product.category === 'string'
+          ? product.category
+          : (product.category as { name: string })?.name || ''
+
         if (existing) {
           set(state => ({
             items: state.items.map(i =>
@@ -52,10 +58,10 @@ export const useCartStore = create<CartStore>()(
             items: [...state.items, {
               id: product.id,
               name: product.name,
-              category: product.category,
+              category: categoryName,
               price: product.price,
               size,
-              color: product.colors[0],
+              color: product.colors?.[0] || '#E8DDD0',
               qty: 1
             }]
           }))
@@ -71,7 +77,6 @@ export const useCartStore = create<CartStore>()(
   )
 )
 
-// UI state (não persiste)
 interface UIStore {
   cartOpen: boolean
   modalProduct: Product | null
