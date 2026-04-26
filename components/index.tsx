@@ -248,12 +248,21 @@ export function ProductModal() {
   return (
     <div className={`modal-overlay open`} onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
       <div className="modal" style={{ position: 'relative' }}>
-        <div className="modal-img">
-          <div className="modal-img-inner">
-            <em style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--stone)' }}>
-              {modalProduct.name}
-            </em>
-          </div>
+        <div className="modal-img" style={{ position: 'relative' }}>
+          {modalProduct.images?.[0] ? (
+            <Image
+              src={modalProduct.images[0]}
+              alt={modalProduct.name}
+              fill
+              style={{ objectFit: 'cover', objectPosition: 'center top' }}
+            />
+          ) : (
+            <div className="modal-img-inner">
+              <em style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--stone)' }}>
+                {modalProduct.name}
+              </em>
+            </div>
+          )}
         </div>
         <div className="modal-content">
           <button className="modal-close" onClick={closeModal} style={{ position: 'absolute', top: 16, right: 16 }}>✕</button>

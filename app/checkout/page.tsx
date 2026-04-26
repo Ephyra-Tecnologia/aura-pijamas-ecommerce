@@ -297,7 +297,13 @@ export default function CheckoutPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
               {items.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ width: 48, height: 64, background: item.color || 'var(--sand)', flexShrink: 0 }} />
+                  <div style={{ width: 48, height: 64, background: 'var(--sand)', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                     {item.image ? (
+                      <Image src={item.image} alt={item.name} fill style={{ objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', background: 'var(--sand)' }} />
+                    )}
+                  </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{item.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--stone)' }}>Tam. {item.size} · Qtd. {item.qty}</div>
