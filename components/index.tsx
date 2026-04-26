@@ -203,7 +203,11 @@ export function CartDrawer() {
             </div>
           ) : items.map((item, i) => (
             <div key={i} className="cart-item">
-              <div className="cart-item-img" style={{ background: item.color }} />
+              <div className="cart-item-img" style={{ background: item.color, position: 'relative', overflow: 'hidden' }}>
+                {item.image && (
+                  <Image src={item.image} alt={item.name} fill style={{ objectFit: 'cover' }} />
+                )}
+              </div>
               <div>
                 <div className="cart-item-name">{item.name}</div>
                 <div className="cart-item-variant">{item.category} · Tam. {item.size}</div>
