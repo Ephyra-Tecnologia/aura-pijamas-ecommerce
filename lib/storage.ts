@@ -20,8 +20,6 @@ export async function uploadImage(
     contentType: mimetype,
     public: true,
   })
-
-  await blob.makePublic()
-
+  
   return `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${uniqueName}`
 }
