@@ -8,16 +8,39 @@ export default function AdminConfiguracoes() {
   const [uploading, setUploading] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [config, setConfig] = useState({
+    // Aviso
+    announce_text: 'Frete grátis para compras acima de R$250 · Coleção Outono chegando em breve',
+    // Hero
     hero_tag: 'Coleção Sonhar',
     hero_title: 'Pijamas <em>Aura</em><br>feito para sonhar...',
     hero_desc: 'Aura é o conjunto invisível de energia, emoção e presença. E nós queremos que você transmita a sua melhor versão ao dormir.',
     hero_cta: 'Explorar a coleção',
-    announce_text: 'Frete grátis para compras acima de R$250 · Coleção Outono chegando em breve',
+    hero_cta_href: '#colecao',
     banner_hero: '',
-    banner_sobre: '',
+    // Editorial col 1
+    ed1_tag: 'Tecidos naturais',
+    ed1_title: '100% Algodão',
+    ed1_link_text: 'Descobrir',
+    ed1_href: '/colecoes',
     banner_ed1: '',
+    // Editorial col 2
+    ed2_tag: 'Edição limitada',
+    ed2_title: 'Pijama Americano',
+    ed2_link_text: 'Ver coleção',
+    ed2_href: '/colecoes',
     banner_ed2: '',
+    // Editorial col 3
+    ed3_tag: 'Bestsellers',
+    ed3_title: 'Favoritos',
+    ed3_link_text: 'Explorar',
+    ed3_href: '/colecoes',
     banner_ed3: '',
+    // Sobre
+    banner_sobre: '',
+    about_title: 'Valorizamos o <em>desacelerar</em>,<br />o sentir e o viver o momento.',
+    about_desc: 'Pijamas Aura nasceu para proporcionar conforto, presença e clima de leveza na sua melhor hora do dia.',
+    about_btn_text: 'Sobre a Aura',
+    about_btn_href: '/sobre',
   })
 
   useEffect(() => {
@@ -48,40 +71,48 @@ export default function AdminConfiguracoes() {
     setTimeout(() => setSaved(false), 3000)
   }
 
-  const inputStyle = {
+  const set = (key: string, value: string) => setConfig(c => ({ ...c, [key]: value }))
+
+  const inputStyle: React.CSSProperties = {
     background: 'white', border: '1px solid var(--sand)',
-    padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)',
+    padding: '10px 14px', fontSize: 14, fontFamily: 'var(--font-sans)',
     outline: 'none', color: 'var(--dark)', width: '100%',
   }
-
-  const labelStyle = {
+  const labelStyle: React.CSSProperties = {
     fontSize: 10, letterSpacing: '0.15em',
-    textTransform: 'uppercase' as const, color: 'var(--stone)',
+    textTransform: 'uppercase', color: 'var(--stone)',
   }
+  const field = (label: string, key: string, textarea = false) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={labelStyle}>{label}</label>
+      {textarea ? (
+        <textarea rows={3} style={{ ...inputStyle, resize: 'vertical' }} value={config[key as keyof typeof config]} onChange={e => set(key, e.target.value)} />
+      ) : (
+        <input style={inputStyle} value={config[key as keyof typeof config]} onChange={e => set(key, e.target.value)} />
+      )}
+    </div>
+  )
 
   const BannerUpload = ({ label, configKey }: { label: string; configKey: string }) => {
     const ref = useRef<HTMLInputElement>(null)
     const url = config[configKey as keyof typeof config]
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <label style={labelStyle}>{label}</label>
-        <div
-          onClick={() => ref.current?.click()}
-          style={{ border: '2px dashed var(--sand)', padding: '20px', cursor: 'pointer', background: 'white', position: 'relative', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
-        >
+        <div onClick={() => ref.current?.click()} style={{ border: '2px dashed var(--sand)', cursor: 'pointer', background: 'white', position: 'relative', minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {uploading === configKey ? (
             <p style={{ fontSize: 12, color: 'var(--stone)' }}>Enviando...</p>
           ) : url ? (
             <>
               <Image src={url} alt={label} fill style={{ objectFit: 'cover' }} />
               <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: 'white', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Trocar imagem</span>
+                <span style={{ color: 'white', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Trocar imagem</span>
               </div>
             </>
           ) : (
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 24, color: 'var(--stone)', marginBottom: 8 }}>+</p>
-              <p style={{ fontSize: 12, color: 'var(--stone)' }}>Clique para adicionar</p>
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <p style={{ fontSize: 20, color: 'var(--stone)', marginBottom: 4 }}>+</p>
+              <p style={{ fontSize: 11, color: 'var(--stone)' }}>Clique para adicionar</p>
             </div>
           )}
         </div>
@@ -89,6 +120,13 @@ export default function AdminConfiguracoes() {
       </div>
     )
   }
+
+  const card = (title: string, children: React.ReactNode) => (
+    <div style={{ background: 'white', border: '1px solid var(--sand)', padding: 28 }}>
+      <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 300, marginBottom: 20 }}>{title}</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>{children}</div>
+    </div>
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: '#fafafa', fontFamily: 'var(--font-sans)' }}>
@@ -103,68 +141,70 @@ export default function AdminConfiguracoes() {
         </div>
       </div>
 
-      <div style={{ padding: '48px 40px', maxWidth: 900 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300 }}>Configurações da loja</h1>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{ background: saved ? '#1e8449' : 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '12px 28px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', transition: 'background 0.3s' }}
-          >
+      <div style={{ padding: '40px', maxWidth: 960 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 300 }}>Configurações da loja</h1>
+          <button onClick={handleSave} disabled={saving} style={{ background: saved ? '#1e8449' : 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '12px 28px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', transition: 'background 0.3s' }}>
             {saving ? 'Salvando...' : saved ? '✓ Salvo!' : 'Salvar alterações'}
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* Aviso topo */}
-          <div style={{ background: 'white', border: '1px solid var(--sand)', padding: 32 }}>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 300, marginBottom: 24 }}>Aviso do topo</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={labelStyle}>Texto da barra de aviso</label>
-              <input style={inputStyle} value={config.announce_text} onChange={e => setConfig(c => ({ ...c, announce_text: e.target.value }))} />
+          {card('🔔 Aviso do topo', <>
+            {field('Texto da barra de aviso', 'announce_text')}
+          </>)}
+
+          {card('🖼 Hero — Banner principal', <>
+            <BannerUpload label="Imagem do hero" configKey="banner_hero" />
+            {field('Tag (ex: Coleção Sonhar)', 'hero_tag')}
+            {field('Título (aceita <em> e <br>)', 'hero_title')}
+            {field('Descrição', 'hero_desc', true)}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {field('Texto do botão', 'hero_cta')}
+              {field('Link do botão', 'hero_cta_href')}
             </div>
-          </div>
+          </>)}
 
-          {/* Hero */}
-          <div style={{ background: 'white', border: '1px solid var(--sand)', padding: 32 }}>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 300, marginBottom: 24 }}>Hero (banner principal)</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <BannerUpload label="Imagem do hero" configKey="banner_hero" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={labelStyle}>Tag (ex: Coleção Sonhar)</label>
-                <input style={inputStyle} value={config.hero_tag} onChange={e => setConfig(c => ({ ...c, hero_tag: e.target.value }))} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={labelStyle}>Título</label>
-                <input style={inputStyle} value={config.hero_title} onChange={e => setConfig(c => ({ ...c, hero_title: e.target.value }))} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={labelStyle}>Descrição</label>
-                <textarea rows={3} style={{ ...inputStyle, resize: 'vertical' }} value={config.hero_desc} onChange={e => setConfig(c => ({ ...c, hero_desc: e.target.value }))} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={labelStyle}>Texto do botão</label>
-                <input style={inputStyle} value={config.hero_cta} onChange={e => setConfig(c => ({ ...c, hero_cta: e.target.value }))} />
-              </div>
+          {card('📸 Banner editorial 1', <>
+            <BannerUpload label="Imagem" configKey="banner_ed1" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {field('Tag', 'ed1_tag')}
+              {field('Título', 'ed1_title')}
+              {field('Texto do link', 'ed1_link_text')}
+              {field('Link (href)', 'ed1_href')}
             </div>
-          </div>
+          </>)}
 
-          {/* Banners editoriais */}
-          <div style={{ background: 'white', border: '1px solid var(--sand)', padding: 32 }}>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 300, marginBottom: 24 }}>Banners editoriais</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
-              <BannerUpload label="Banner 1 (Tecidos)" configKey="banner_ed1" />
-              <BannerUpload label="Banner 2 (Destaque)" configKey="banner_ed2" />
-              <BannerUpload label="Banner 3 (Bestsellers)" configKey="banner_ed3" />
+          {card('📸 Banner editorial 2', <>
+            <BannerUpload label="Imagem" configKey="banner_ed2" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {field('Tag', 'ed2_tag')}
+              {field('Título', 'ed2_title')}
+              {field('Texto do link', 'ed2_link_text')}
+              {field('Link (href)', 'ed2_href')}
             </div>
-          </div>
+          </>)}
 
-          {/* Banner sobre */}
-          <div style={{ background: 'white', border: '1px solid var(--sand)', padding: 32 }}>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 300, marginBottom: 24 }}>Seção Sobre</h2>
-            <BannerUpload label="Foto da seção sobre" configKey="banner_sobre" />
-          </div>
+          {card('📸 Banner editorial 3', <>
+            <BannerUpload label="Imagem" configKey="banner_ed3" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {field('Tag', 'ed3_tag')}
+              {field('Título', 'ed3_title')}
+              {field('Texto do link', 'ed3_link_text')}
+              {field('Link (href)', 'ed3_href')}
+            </div>
+          </>)}
+
+          {card('🌿 Seção Sobre', <>
+            <BannerUpload label="Foto" configKey="banner_sobre" />
+            {field('Título (aceita <em> e <br />)', 'about_title')}
+            {field('Descrição', 'about_desc', true)}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {field('Texto do botão', 'about_btn_text')}
+              {field('Link do botão', 'about_btn_href')}
+            </div>
+          </>)}
 
         </div>
       </div>
