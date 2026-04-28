@@ -1,17 +1,24 @@
 'use client'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useEffect, useState } from 'react'
 import { useCartStore, useUIStore } from '@/store/cart'
 
 export default function Header() {
   const count = useCartStore(s => s.count())
   const setCartOpen = useUIStore(s => s.setCartOpen)
+  const [announceText, setAnnounceText] = useState('Frete grátis para compras acima de R$250 · Coleção Outono chegando em breve')
+
+  useEffect(() => {
+    fetch('/api/configuracoes')
+      .then(r => r.json())
+      .then(data => { if (data.announce_text) setAnnounceText(data.announce_text) })
+      .catch(() => {})
+  }, [])
 
   return (
     <>
-      <div className="announce">
-        Frete grátis para compras acima de R$250 &nbsp;·&nbsp; Coleção Outono chegando em breve
-      </div>
+      <div className="announce">{announceText}</div>
       <header>
         <nav className="left">
           <Link href="/colecoes">Coleções</Link>
@@ -21,13 +28,7 @@ export default function Header() {
         </nav>
 
         <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
-          <Image
-            src="/assets/aura-header.png"
-            alt="Aura Pijamas"
-            height={48}
-            width={160}
-            style={{ objectFit: 'contain', mixBlendMode: 'multiply' }}
-          />
+          <Image src="/assets/aura-header.png" alt="Aura Pijamas" height={48} width={160} style={{ objectFit: 'contain', mixBlendMode: 'multiply' }} />
         </Link>
 
         <nav className="right">
