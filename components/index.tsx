@@ -12,6 +12,7 @@ export function Editorial({ config = {} }: { config?: Record<string, string> }) 
       linkText: config.ed1_link_text || 'Descobrir',
       href: config.ed1_href || '/colecoes',
       bannerKey: 'banner_ed1',
+      colorKey: 'ed1_text_color',
     },
     {
       tag: config.ed2_tag || 'Edição limitada',
@@ -19,6 +20,7 @@ export function Editorial({ config = {} }: { config?: Record<string, string> }) 
       linkText: config.ed2_link_text || 'Ver coleção',
       href: config.ed2_href || '/colecoes',
       bannerKey: 'banner_ed2',
+      colorKey: 'ed2_text_color',
     },
     {
       tag: config.ed3_tag || 'Bestsellers',
@@ -26,25 +28,29 @@ export function Editorial({ config = {} }: { config?: Record<string, string> }) 
       linkText: config.ed3_link_text || 'Explorar',
       href: config.ed3_href || '/colecoes',
       bannerKey: 'banner_ed3',
+      colorKey: 'ed3_text_color',
     },
   ]
 
   return (
     <section className="editorial">
-      {cols.map((col, i) => (
-        <div key={i} className="editorial-col">
-          {config[col.bannerKey] && (
-            <Image src={config[col.bannerKey]} alt={col.title} fill className="ed-img" style={{ objectFit: 'cover', objectPosition: 'center top' }} />
-          )}
-          <div className="ed-placeholder">
-            <div className="ed-content">
-              <span className="ed-tag">{col.tag}</span>
-              <h3 className="ed-title">{col.title}</h3>
-              <Link href={col.href} className="ed-link">{col.linkText}</Link>
+      {cols.map((col, i) => {
+        const textColor = config[col.colorKey] || undefined
+        return (
+          <div key={i} className="editorial-col">
+            {config[col.bannerKey] && (
+              <Image src={config[col.bannerKey]} alt={col.title} fill className="ed-img" style={{ objectFit: 'cover', objectPosition: 'center top' }} />
+            )}
+            <div className="ed-placeholder">
+              <div className="ed-content">
+                <span className="ed-tag" style={{ color: textColor }}>{col.tag}</span>
+                <h3 className="ed-title" style={{ color: textColor }}>{col.title}</h3>
+                <Link href={col.href} className="ed-link" style={{ color: textColor, borderColor: textColor }}>{col.linkText}</Link>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </section>
   )
 }
@@ -55,11 +61,12 @@ export function AboutStrip({ config = {} }: { config?: Record<string, string> })
   const aboutDesc = config.about_desc || 'Pijamas Aura nasceu para proporcionar conforto, presença e clima de leveza na sua melhor hora do dia. Desacelerar, sentir e se reconectar com a sua essência, esse é o verdadeiro luxo.'
   const aboutBtnText = config.about_btn_text || 'Sobre a Aura'
   const aboutBtnHref = config.about_btn_href || '/sobre'
+  const aboutOverline = config.about_overline || 'Nossa filosofia'
 
   return (
     <section className="about-strip">
       <div className="about-text">
-        <span className="overline">Nossa filosofia</span>
+        <span className="overline">{aboutOverline}</span>
         <h2 className="about-heading" dangerouslySetInnerHTML={{ __html: aboutTitle }} />
         <p className="about-body">{aboutDesc}</p>
         <Link href={aboutBtnHref} className="hero-cta">
