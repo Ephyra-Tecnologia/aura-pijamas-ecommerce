@@ -1,25 +1,39 @@
 import Link from 'next/link'
 import Image from 'next/image'
 
-export default function Hero() {
+interface Props {
+  config?: Record<string, string>
+}
+
+export default function Hero({ config = {} }: Props) {
+  const bannerHero = config.banner_hero
+  const tag = config.hero_tag || 'Coleção Sonhar'
+  const title = config.hero_title || 'Pijamas <em>Aura</em><br>feito para sonhar...'
+  const desc = config.hero_desc || 'Aura é o conjunto invisível de energia, emoção e presença. E nós queremos que você transmita a sua melhor versão ao dormir.'
+  const cta = config.hero_cta || 'Explorar a coleção'
+
   return (
     <section className="hero">
       <div className="hero-image">
-        <div className="hero-img-placeholder" />
-        {/* Troque por: <Image src="/assets/banner-hero.jpg" alt="Coleção Aura" fill className="hero-img" /> */}
+        {bannerHero ? (
+          <Image
+            src={bannerHero}
+            alt="Hero Aura"
+            fill
+            className="hero-img"
+            style={{ objectFit: 'cover', objectPosition: 'center top' }}
+          />
+        ) : (
+          <div className="hero-img-placeholder" />
+        )}
         <span className="hero-label">Nova Coleção 2025</span>
       </div>
       <div className="hero-content">
-        <p className="hero-tag">Coleção Sonhar</p>
-        <h1 className="hero-title">
-          Pijamas <em>Aura</em><br />feito para sonhar...
-        </h1>
-        <p className="hero-desc">
-          Aura é o conjunto invisível de energia, emoção e presença.
-          E nós queremos que você transmita a sua melhor versão ao dormir.
-        </p>
+        <p className="hero-tag">{tag}</p>
+        <h1 className="hero-title" dangerouslySetInnerHTML={{ __html: title }} />
+        <p className="hero-desc">{desc}</p>
         <Link href="#colecao" className="hero-cta">
-          Explorar a coleção
+          {cta}
           <svg width="20" height="8" fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 20 8">
             <path d="M0 4h18m-4-3.5L18 4l-4 3.5"/>
           </svg>
