@@ -4,16 +4,25 @@ import { useState } from 'react'
 import { useCartStore, useUIStore } from '@/store/cart'
 import Image from 'next/image'
 
-export function Editorial() {
+export function Editorial({ config = {} }: { config?: Record<string, string> }) {
   const cols = [
-    { tag: 'Tecidos naturais', title: '100% Algodão', href: '/colecoes', img: null },
-    { tag: 'Edição limitada', title: 'Pijama Americano', href: '/colecoes#pijamas', img: null },
-    { tag: 'Bestsellers', title: 'Favoritos', href: '/colecoes', img: null },
+    { tag: 'Tecidos naturais', title: '100% Algodão', href: '/colecoes', bannerKey: 'banner_ed1' },
+    { tag: 'Edição limitada', title: 'Pijama Americano', href: '/colecoes#pijamas', bannerKey: 'banner_ed2' },
+    { tag: 'Bestsellers', title: 'Favoritos', href: '/colecoes', bannerKey: 'banner_ed3' },
   ]
   return (
     <section className="editorial">
       {cols.map((col, i) => (
         <div key={i} className="editorial-col">
+          {config[col.bannerKey] && (
+            <Image
+              src={config[col.bannerKey]}
+              alt={col.title}
+              fill
+              className="ed-img"
+              style={{ objectFit: 'cover', objectPosition: 'center top' }}
+            />
+          )}
           <div className="ed-placeholder">
             <div className="ed-content">
               <span className="ed-tag">{col.tag}</span>
@@ -29,7 +38,8 @@ export function Editorial() {
   )
 }
 
-export function AboutStrip() {
+export function AboutStrip({ config = {} }: { config?: Record<string, string> }) {
+  const bannerSobre = config.banner_sobre
   return (
     <section className="about-strip">
       <div className="about-text">
@@ -50,14 +60,24 @@ export function AboutStrip() {
         </Link>
       </div>
       <div className="about-image">
-        <div style={{
-          width: '100%', height: '100%',
-          background: 'linear-gradient(135deg, #E8DDD0, #C4B5A5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--font-serif)', fontSize: 14, fontStyle: 'italic', color: 'var(--stone)'
-        }}>
-          foto editorial aqui
-        </div>
+        {bannerSobre ? (
+          <Image
+            src={bannerSobre}
+            alt="Sobre a Aura"
+            fill
+            className="about-img"
+            style={{ objectFit: 'cover', objectPosition: 'center top' }}
+          />
+        ) : (
+          <div style={{
+            width: '100%', height: '100%',
+            background: 'linear-gradient(135deg, #E8DDD0, #C4B5A5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-serif)', fontSize: 14, fontStyle: 'italic', color: 'var(--stone)'
+          }}>
+            foto editorial aqui
+          </div>
+        )}
       </div>
     </section>
   )
@@ -89,7 +109,6 @@ export function Newsletter() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: integrar com API de newsletter
     alert('Obrigada! Em breve você receberá nossas novidades.')
     setName('')
     setEmail('')
@@ -106,21 +125,8 @@ export function Newsletter() {
         <p style={{ fontSize: 13, color: 'rgba(232,221,208,0.7)', lineHeight: 1.7 }}>
           Receba novidades, lançamentos exclusivos e ofertas especiais antes de todo mundo.
         </p>
-        <input
-          className="newsletter-input"
-          type="text"
-          placeholder="Seu nome"
-          value={name}
-          onChange={e => setName(e.target.value)}
-        />
-        <input
-          className="newsletter-input"
-          type="email"
-          placeholder="Seu e-mail"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-        />
+        <input className="newsletter-input" type="text" placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} />
+        <input className="newsletter-input" type="email" placeholder="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} required />
         <button type="submit" className="newsletter-submit">Quero participar</button>
       </form>
     </section>
@@ -133,13 +139,7 @@ export function Footer() {
       <div className="footer-grid">
         <div>
           <Link href="/" style={{ display: 'inline-block' }}>
-            <Image
-              src="/assets/aura-footer.png"
-              alt="Aura Pijamas"
-              height={52}
-              width={180}
-              style={{ objectFit: 'contain' }}
-            />
+            <Image src="/assets/aura-footer.png" alt="Aura Pijamas" height={52} width={180} style={{ objectFit: 'contain' }} />
           </Link>
           <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--stone)', marginTop: 16, maxWidth: 240 }}>
             Pijamas feitos para quem valoriza o descanso como ritual.
@@ -179,7 +179,7 @@ export function Footer() {
 }
 
 export function CartDrawer() {
-  const { items, removeItem, total, count } = useCartStore()
+  const { items, removeItem, total } = useCartStore()
   const { cartOpen, setCartOpen } = useUIStore()
 
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
@@ -204,9 +204,7 @@ export function CartDrawer() {
           ) : items.map((item, i) => (
             <div key={i} className="cart-item">
               <div className="cart-item-img" style={{ background: item.color, position: 'relative', overflow: 'hidden' }}>
-                {item.image && (
-                  <Image src={item.image} alt={item.name} fill style={{ objectFit: 'cover' }} />
-                )}
+                {item.image && <Image src={item.image} alt={item.name} fill style={{ objectFit: 'cover' }} />}
               </div>
               <div>
                 <div className="cart-item-name">{item.name}</div>
@@ -250,16 +248,11 @@ export function ProductModal() {
   }
 
   return (
-    <div className={`modal-overlay open`} onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
+    <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
       <div className="modal" style={{ position: 'relative' }}>
         <div className="modal-img" style={{ position: 'relative' }}>
           {modalProduct.images?.[0] ? (
-            <Image
-              src={modalProduct.images[0]}
-              alt={modalProduct.name}
-              fill
-              style={{ objectFit: 'cover', objectPosition: 'center top' }}
-            />
+            <Image src={modalProduct.images[0]} alt={modalProduct.name} fill style={{ objectFit: 'cover', objectPosition: 'center top' }} />
           ) : (
             <div className="modal-img-inner">
               <em style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--stone)' }}>
@@ -271,9 +264,7 @@ export function ProductModal() {
         <div className="modal-content">
           <button className="modal-close" onClick={closeModal} style={{ position: 'absolute', top: 16, right: 16 }}>✕</button>
           <p className="modal-category">
-            {typeof modalProduct.category === 'string' 
-              ? modalProduct.category 
-              : modalProduct.category?.name || ''}
+            {typeof modalProduct.category === 'string' ? modalProduct.category : modalProduct.category?.name || ''}
           </p>
           <h2 className="modal-name">{modalProduct.name}</h2>
           <p className="modal-price">{fmt(modalProduct.price)}</p>
@@ -281,20 +272,13 @@ export function ProductModal() {
           <p className="size-label">Tamanho</p>
           <div className="size-grid">
             {['PP','P','M','G','GG'].map(s => (
-              <button key={s} className={`size-btn ${selectedSize === s ? 'active' : ''}`} onClick={() => setSelectedSize(s)}>
-                {s}
-              </button>
+              <button key={s} className={`size-btn ${selectedSize === s ? 'active' : ''}`} onClick={() => setSelectedSize(s)}>{s}</button>
             ))}
           </div>
           <p className="size-label">Cor</p>
           <div className="color-grid">
             {(modalProduct.colors ?? []).map((c, i) => (
-              <div
-                key={i}
-                className={`color-swatch ${selectedColor === i ? 'active' : ''}`}
-                style={{ background: c }}
-                onClick={() => setSelectedColor(i)}
-              />
+              <div key={i} className={`color-swatch ${selectedColor === i ? 'active' : ''}`} style={{ background: c }} onClick={() => setSelectedColor(i)} />
             ))}
           </div>
           <button className="btn-add" onClick={handleAdd}>Adicionar ao carrinho</button>
