@@ -8,35 +8,34 @@ export default function AdminConfiguracoes() {
   const [uploading, setUploading] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [config, setConfig] = useState({
-    // Aviso
     announce_text: 'Frete grátis para compras acima de R$250 · Coleção Outono chegando em breve',
-    // Hero
     hero_tag: 'Coleção Sonhar',
     hero_title: 'Pijamas <em>Aura</em><br>feito para sonhar...',
     hero_desc: 'Aura é o conjunto invisível de energia, emoção e presença. E nós queremos que você transmita a sua melhor versão ao dormir.',
     hero_cta: 'Explorar a coleção',
     hero_cta_href: '#colecao',
+    hero_text_color: '',
     banner_hero: '',
-    // Editorial col 1
     ed1_tag: 'Tecidos naturais',
     ed1_title: '100% Algodão',
     ed1_link_text: 'Descobrir',
     ed1_href: '/colecoes',
+    ed1_text_color: '',
     banner_ed1: '',
-    // Editorial col 2
     ed2_tag: 'Edição limitada',
     ed2_title: 'Pijama Americano',
     ed2_link_text: 'Ver coleção',
     ed2_href: '/colecoes',
+    ed2_text_color: '',
     banner_ed2: '',
-    // Editorial col 3
     ed3_tag: 'Bestsellers',
     ed3_title: 'Favoritos',
     ed3_link_text: 'Explorar',
     ed3_href: '/colecoes',
+    ed3_text_color: '',
     banner_ed3: '',
-    // Sobre
     banner_sobre: '',
+    about_overline: 'Nossa filosofia',
     about_title: 'Valorizamos o <em>desacelerar</em>,<br />o sentir e o viver o momento.',
     about_desc: 'Pijamas Aura nasceu para proporcionar conforto, presença e clima de leveza na sua melhor hora do dia.',
     about_btn_text: 'Sobre a Aura',
@@ -82,14 +81,32 @@ export default function AdminConfiguracoes() {
     fontSize: 10, letterSpacing: '0.15em',
     textTransform: 'uppercase', color: 'var(--stone)',
   }
-  const field = (label: string, key: string, textarea = false) => (
+
+  const field = (label: string, key: string, textarea = false, placeholder = '') => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <label style={labelStyle}>{label}</label>
       {textarea ? (
-        <textarea rows={3} style={{ ...inputStyle, resize: 'vertical' }} value={config[key as keyof typeof config]} onChange={e => set(key, e.target.value)} />
+        <textarea rows={3} style={{ ...inputStyle, resize: 'vertical' }} value={config[key as keyof typeof config]} onChange={e => set(key, e.target.value)} placeholder={placeholder} />
       ) : (
-        <input style={inputStyle} value={config[key as keyof typeof config]} onChange={e => set(key, e.target.value)} />
+        <input style={inputStyle} value={config[key as keyof typeof config]} onChange={e => set(key, e.target.value)} placeholder={placeholder} />
       )}
+    </div>
+  )
+
+  const colorField = (label: string, key: string, hint = '') => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {config[key as keyof typeof config] && (
+          <div style={{ width: 28, height: 28, background: config[key as keyof typeof config], border: '1px solid var(--sand)', flexShrink: 0 }} />
+        )}
+        <input
+          style={{ ...inputStyle, fontFamily: 'monospace' }}
+          value={config[key as keyof typeof config]}
+          onChange={e => set(key, e.target.value)}
+          placeholder={hint || '#1C1410 (vazio = cor padrão)'}
+        />
+      </div>
     </div>
   )
 
@@ -164,6 +181,7 @@ export default function AdminConfiguracoes() {
               {field('Texto do botão', 'hero_cta')}
               {field('Link do botão', 'hero_cta_href')}
             </div>
+            {colorField('Cor do texto (hex)', 'hero_text_color', '#1C1410 = escuro padrão, #FDFAF7 = claro')}
           </>)}
 
           {card('📸 Banner editorial 1', <>
@@ -174,6 +192,7 @@ export default function AdminConfiguracoes() {
               {field('Texto do link', 'ed1_link_text')}
               {field('Link (href)', 'ed1_href')}
             </div>
+            {colorField('Cor do texto (hex)', 'ed1_text_color', '#4A3728 = escuro, #FDFAF7 = claro')}
           </>)}
 
           {card('📸 Banner editorial 2', <>
@@ -184,6 +203,7 @@ export default function AdminConfiguracoes() {
               {field('Texto do link', 'ed2_link_text')}
               {field('Link (href)', 'ed2_href')}
             </div>
+            {colorField('Cor do texto (hex)', 'ed2_text_color', '#F7F3EE = claro, #1C1410 = escuro')}
           </>)}
 
           {card('📸 Banner editorial 3', <>
@@ -194,10 +214,12 @@ export default function AdminConfiguracoes() {
               {field('Texto do link', 'ed3_link_text')}
               {field('Link (href)', 'ed3_href')}
             </div>
+            {colorField('Cor do texto (hex)', 'ed3_text_color', '#FDFAF7 = claro, #1C1410 = escuro')}
           </>)}
 
           {card('🌿 Seção Sobre', <>
             <BannerUpload label="Foto" configKey="banner_sobre" />
+            {field('Texto "Nossa filosofia"', 'about_overline')}
             {field('Título (aceita <em> e <br />)', 'about_title')}
             {field('Descrição', 'about_desc', true)}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
