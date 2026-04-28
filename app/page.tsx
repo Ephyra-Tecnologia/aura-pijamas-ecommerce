@@ -3,6 +3,8 @@ import ProductGrid from '@/components/ProductGrid'
 import { Editorial, AboutStrip, Features, Newsletter, Footer } from '@/components/index'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 async function getConfigs() {
   try {
     const settings = await prisma.setting.findMany()
