@@ -13,10 +13,17 @@ export default function AdminProdutoForm() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [form, setForm] = useState({
     name: '', description: '', price: '', stock: '0',
-    active: true, images: [] as string[],
+    active: true, images: [] as string[], categoryId: '',
   })
+
+  useEffect(() => {
+    fetch('/api/categorias')
+      .then(r => r.json())
+      .then(data => setCategories(Array.isArray(data) ? data : []))
+  }, [])
 
   useEffect(() => {
     if (!isNew) {
@@ -24,9 +31,13 @@ export default function AdminProdutoForm() {
         .then(r => r.json())
         .then(p => {
           setForm({
-            name: p.name, description: p.description || '',
-            price: p.price.toString(), stock: p.stock.toString(),
-            active: p.active, images: p.images || [],
+            name: p.name,
+            description: p.description || '',
+            price: p.price.toString(),
+            stock: p.stock.toString(),
+            active: p.active,
+            images: p.images || [],
+            categoryId: p.categoryId || '',
           })
           setLoading(false)
         })
@@ -91,6 +102,7 @@ export default function AdminProdutoForm() {
           <Link href="/admin" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Dashboard</Link>
           <Link href="/admin/produtos" style={{ color: 'var(--cream)', textDecoration: 'none' }}>Produtos</Link>
           <Link href="/admin/pedidos" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Pedidos</Link>
+          <Link href="/admin/categorias" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Categorias</Link>
           <Link href="/api/auth/signout" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sair</Link>
         </div>
       </div>
@@ -121,6 +133,33 @@ export default function AdminProdutoForm() {
                   outline: 'none', color: 'var(--dark)', resize: 'vertical',
                 }}
               />
+            </div>
+
+            {/* Categoria */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>
+                Categoria
+              </label>
+              <select
+                value={form.categoryId}
+                onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
+                style={{
+                  background: 'white', border: '1px solid var(--sand)',
+                  padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)',
+                  outline: 'none', color: 'var(--dark)', width: '100%',
+                }}
+              >
+                <option value="">Sem categoria</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+              {categories.length === 0 && (
+                <p style={{ fontSize: 11, color: 'var(--stone)' }}>
+                  Nenhuma categoria criada ainda.{' '}
+                  <Link href="/admin/categorias" style={{ color: 'var(--earth)' }}>Criar categorias →</Link>
+                </p>
+              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -161,14 +200,9 @@ export default function AdminProdutoForm() {
             <p style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>
               Fotos do produto
             </p>
-
             <div
               onClick={() => fileInputRef.current?.click()}
-              style={{
-                border: '2px dashed var(--sand)', padding: '32px',
-                textAlign: 'center', cursor: 'pointer', marginBottom: 16,
-                background: 'white',
-              }}
+              style={{ border: '2px dashed var(--sand)', padding: '32px', textAlign: 'center', cursor: 'pointer', marginBottom: 16, background: 'white' }}
             >
               {uploading ? (
                 <p style={{ fontSize: 13, color: 'var(--stone)' }}>Enviando...</p>
@@ -180,7 +214,6 @@ export default function AdminProdutoForm() {
               )}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUpload} style={{ display: 'none' }} />
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {form.images.map((img, i) => (
                 <div key={i} style={{ position: 'relative', aspectRatio: '3/2', background: 'var(--sand)', overflow: 'hidden' }}>
@@ -188,12 +221,7 @@ export default function AdminProdutoForm() {
                   <button
                     type="button"
                     onClick={() => removeImage(i)}
-                    style={{
-                      position: 'absolute', top: 8, right: 8,
-                      background: 'rgba(28,20,16,0.7)', color: 'white',
-                      border: 'none', width: 28, height: 28,
-                      cursor: 'pointer', fontSize: 14,
-                    }}
+                    style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(28,20,16,0.7)', color: 'white', border: 'none', width: 28, height: 28, cursor: 'pointer', fontSize: 14 }}
                   >
                     ✕
                   </button>
