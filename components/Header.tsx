@@ -2,9 +2,12 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useCartStore, useUIStore } from '@/store/cart'
 
 export default function Header() {
+  const pathname = usePathname()
+  if (pathname?.startsWith('/admin')) return null
   const count = useCartStore(s => s.count())
   const setCartOpen = useUIStore(s => s.setCartOpen)
   const [announceText, setAnnounceText] = useState('Frete grátis para compras acima de R$250 · Coleção Outono chegando em breve')

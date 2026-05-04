@@ -7,30 +7,7 @@ export default async function AdminPage() {
   if (!session) redirect('/admin/login')
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#fafafa',
-      fontFamily: 'var(--font-sans)',
-    }}>
-      <div style={{
-        background: 'var(--dark)',
-        color: 'var(--cream)',
-        padding: '20px 40px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>
-          Aura Admin
-        </span>
-        <div style={{ display: 'flex', gap: 32, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-          <Link href="/admin/produtos" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Produtos</Link>
-          <Link href="/admin/pedidos" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Pedidos</Link>
-          <Link href="/api/auth/signout" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sair</Link>
-        </div>
-      </div>
-
-      <div style={{ padding: '48px 40px' }}>
+    <div style={{ padding: '48px 40px' }}>
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 36, fontWeight: 300, marginBottom: 8 }}>
           Bem-vinda! 🌙
         </h1>
@@ -61,7 +38,6 @@ export default async function AdminPage() {
             </Link>
           ))}
         </div>
-      </div>
     </div>
   )
 }

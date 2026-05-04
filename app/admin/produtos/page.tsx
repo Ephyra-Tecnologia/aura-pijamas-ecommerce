@@ -23,6 +23,12 @@ export default function AdminProdutos() {
       .then(data => { setProducts(data); setLoading(false) })
   }, [])
 
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Excluir "${name}"? Esta ação não pode ser desfeita.`)) return
+    await fetch(`/api/produtos/${id}`, { method: 'DELETE' })
+    setProducts(prev => prev.filter(p => p.id !== id))
+  }
+
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
 
   return (
@@ -67,8 +73,9 @@ export default function AdminProdutos() {
                     {p.active ? 'Ativo' : 'Inativo'}
                   </span>
                 </td>
-                <td style={{ padding: '16px' }}>
+                <td style={{ padding: '16px', display: 'flex', gap: 16, alignItems: 'center' }}>
                   <Link href={`/admin/produtos/${p.id}`} style={{ fontSize: 12, color: 'var(--earth)', textDecoration: 'none', letterSpacing: '0.08em' }}>Editar →</Link>
+                  <button onClick={() => handleDelete(p.id, p.name)} style={{ fontSize: 12, color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.08em', padding: 0 }}>Excluir</button>
                 </td>
               </tr>
             ))}
