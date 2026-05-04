@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       stock: parseInt(body.stock),
       images: body.images,
       active: body.active,
+      categoryId: body.categoryId || null,
     },
   })
   return NextResponse.json(product)

@@ -1,14 +1,21 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { useUIStore, Product } from '@/store/cart'
 import { Footer } from '@/components/index'
 
 export default function ColecoesPage() {
   const openModal = useUIStore(s => s.openModal)
+  const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('todos')
+  const [filter, setFilter] = useState(searchParams.get('categoria') || 'todos')
+
+  useEffect(() => {
+    const cat = searchParams.get('categoria')
+    setFilter(cat || 'todos')
+  }, [searchParams])
 
   useEffect(() => {
     fetch('/api/produtos')
@@ -31,6 +38,8 @@ export default function ColecoesPage() {
     ? products.filter(p => p.active !== false)
     : products.filter(p => p.active !== false && getCategoryName(p.category).toLowerCase() === filter.toLowerCase())
 
+
+
   return (
     <>
       <section style={{ background: 'var(--bark)', padding: '80px 6vw 60px' }}>
@@ -46,11 +55,11 @@ export default function ColecoesPage() {
         {categories.map(cat => (
           <button
             key={cat}
-            onClick={() => setFilter(cat)}
+            onClick={() => setFilter(cat.toLowerCase())}
             style={{
-              background: filter === cat ? 'var(--dark)' : 'transparent',
-              color: filter === cat ? 'var(--cream)' : 'var(--stone)',
-              border: `1px solid ${filter === cat ? 'var(--dark)' : 'var(--sand)'}`,
+              background: filter.toLowerCase() === cat.toLowerCase() ? 'var(--dark)' : 'transparent',
+              color: filter.toLowerCase() === cat.toLowerCase() ? 'var(--cream)' : 'var(--stone)',
+              border: `1px solid ${filter.toLowerCase() === cat.toLowerCase() ? 'var(--dark)' : 'var(--sand)'}`,
               padding: '8px 20px',
               fontSize: 11,
               letterSpacing: '0.12em',
