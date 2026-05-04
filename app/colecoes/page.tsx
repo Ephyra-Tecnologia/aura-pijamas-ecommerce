@@ -1,11 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { useUIStore, Product } from '@/store/cart'
 import { Footer } from '@/components/index'
 
-export default function ColecoesPage() {
+function ColecoesContent() {
   const openModal = useUIStore(s => s.openModal)
   const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
@@ -38,19 +38,8 @@ export default function ColecoesPage() {
     ? products.filter(p => p.active !== false)
     : products.filter(p => p.active !== false && getCategoryName(p.category).toLowerCase() === filter.toLowerCase())
 
-
-
   return (
     <>
-      <section style={{ background: 'var(--bark)', padding: '80px 6vw 60px' }}>
-        <p style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>
-          Aura Pijamas
-        </p>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, color: 'var(--cream)', lineHeight: 1.1 }}>
-          Nossa <em style={{ fontStyle: 'italic', color: 'var(--accent)' }}>Coleção</em>
-        </h1>
-      </section>
-
       <div style={{ padding: '40px 6vw 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {categories.map(cat => (
           <button
@@ -117,6 +106,25 @@ export default function ColecoesPage() {
           </div>
         )}
       </div>
+    </>
+  )
+}
+
+export default function ColecoesPage() {
+  return (
+    <>
+      <section style={{ background: 'var(--bark)', padding: '80px 6vw 60px' }}>
+        <p style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>
+          Aura Pijamas
+        </p>
+        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, color: 'var(--cream)', lineHeight: 1.1 }}>
+          Nossa <em style={{ fontStyle: 'italic', color: 'var(--accent)' }}>Coleção</em>
+        </h1>
+      </section>
+
+      <Suspense fallback={<div style={{ padding: '80px 6vw', color: 'var(--stone)', fontSize: 14 }}>Carregando...</div>}>
+        <ColecoesContent />
+      </Suspense>
 
       <Footer />
     </>
