@@ -40,6 +40,12 @@ export default function AdminPedidos() {
       .then(data => { setOrders(Array.isArray(data) ? data : []); setLoading(false) })
   }, [])
 
+  async function handleDelete(id: string) {
+    if (!confirm('Excluir este pedido? Esta ação não pode ser desfeita.')) return
+    await fetch(`/api/pedidos/${id}`, { method: 'DELETE' })
+    setOrders(prev => prev.filter(o => o.id !== id))
+  }
+
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR')
 
@@ -81,8 +87,9 @@ export default function AdminPedidos() {
                     </span>
                   </td>
                   <td style={{ padding: '16px', fontSize: 13, color: 'var(--stone)' }}>{fmtDate(o.createdAt)}</td>
-                  <td style={{ padding: '16px' }}>
+                  <td style={{ padding: '16px', display: 'flex', gap: 16, alignItems: 'center' }}>
                     <Link href={`/admin/pedidos/${o.id}`} style={{ fontSize: 12, color: 'var(--earth)', textDecoration: 'none', letterSpacing: '0.08em' }}>Ver →</Link>
+                    <button onClick={() => handleDelete(o.id)} style={{ fontSize: 12, color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.08em', padding: 0 }}>Excluir</button>
                   </td>
                 </tr>
               )
