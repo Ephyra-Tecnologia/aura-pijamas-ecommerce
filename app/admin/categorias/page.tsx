@@ -48,20 +48,7 @@ export default function AdminCategorias() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fafafa', fontFamily: 'var(--font-sans)' }}>
-      <div style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>Aura Admin</span>
-        <div style={{ display: 'flex', gap: 32, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-          <Link href="/admin" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Dashboard</Link>
-          <Link href="/admin/produtos" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Produtos</Link>
-          <Link href="/admin/pedidos" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Pedidos</Link>
-          <Link href="/admin/categorias" style={{ color: 'var(--cream)', textDecoration: 'none' }}>Categorias</Link>
-          <Link href="/admin/configuracoes" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Configurações</Link>
-          <Link href="/api/auth/signout" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sair</Link>
-        </div>
-      </div>
-
-      <div style={{ padding: '48px 40px', maxWidth: 640 }}>
+    <div style={{ padding: '48px 40px', maxWidth: 640 }}>
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, marginBottom: 40 }}>Categorias</h1>
 
         {/* Criar nova */}
@@ -111,7 +98,6 @@ export default function AdminCategorias() {
             </div>
           ))}
         </div>
-      </div>
     </div>
   )
 }

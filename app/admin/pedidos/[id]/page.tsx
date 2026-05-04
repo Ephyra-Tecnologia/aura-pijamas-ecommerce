@@ -72,18 +72,7 @@ export default function AdminPedidoDetalhe() {
   if (!order) return <div style={{ padding: 40, fontFamily: 'var(--font-sans)' }}>Pedido não encontrado.</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fafafa', fontFamily: 'var(--font-sans)' }}>
-      <div style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>Aura Admin</span>
-        <div style={{ display: 'flex', gap: 32, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-          <Link href="/admin" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Dashboard</Link>
-          <Link href="/admin/produtos" style={{ color: 'var(--stone)', textDecoration: 'none' }}>Produtos</Link>
-          <Link href="/admin/pedidos" style={{ color: 'var(--cream)', textDecoration: 'none' }}>Pedidos</Link>
-          <Link href="/api/auth/signout" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sair</Link>
-        </div>
-      </div>
-
-      <div style={{ padding: '48px 40px', maxWidth: 900 }}>
+    <div style={{ padding: '48px 40px', maxWidth: 900 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
           <Link href="/admin/pedidos" style={{ fontSize: 12, color: 'var(--stone)', textDecoration: 'none' }}>← Pedidos</Link>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300 }}>
@@ -155,7 +144,6 @@ export default function AdminPedidoDetalhe() {
             </button>
           </div>
         </div>
-      </div>
     </div>
   )
 }

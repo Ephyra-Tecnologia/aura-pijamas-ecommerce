@@ -5,12 +5,18 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useCartStore, useUIStore } from '@/store/cart'
 
+interface Category {
+  id: string
+  name: string
+  slug: string
+}
+
 export default function Header() {
   const pathname = usePathname()
-  if (pathname?.startsWith('/admin')) return null
   const count = useCartStore(s => s.count())
   const setCartOpen = useUIStore(s => s.setCartOpen)
   const [announceText, setAnnounceText] = useState('Frete grátis para compras acima de R$250 · Coleção Outono chegando em breve')
+  const [categories, setCategories] = useState<Category[]>([])
 
   useEffect(() => {
     fetch('/api/configuracoes')
@@ -19,15 +25,27 @@ export default function Header() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    fetch('/api/categorias')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCategories(data) })
+      .catch(() => {})
+  }, [])
+
+  if (pathname?.startsWith('/admin')) return null
+
   return (
     <>
       <div className="announce">{announceText}</div>
       <header>
         <nav className="left">
-          <Link href="/colecoes">Coleções</Link>
-          <Link href="/colecoes#pijamas">Pijamas</Link>
-          <Link href="/colecoes#conjuntos">Conjuntos</Link>
-          <Link href="/colecoes#sale">Sale</Link>
+          <Link href="/">Home</Link>
+          {categories.map(cat => (
+            <Link key={cat.id} href={`/colecoes?categoria=${cat.slug}`}>
+              {cat.name}
+            </Link>
+          ))}
+          <Link href="/a-aura">A Aura</Link>
         </nav>
 
         <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>

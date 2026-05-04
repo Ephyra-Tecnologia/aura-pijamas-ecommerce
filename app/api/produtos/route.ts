@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       stock: parseInt(body.stock),
       images: body.images || [],
       active: body.active ?? true,
+      ...(body.categoryId ? { categoryId: body.categoryId } : {}),
     },
   })
   return NextResponse.json(product)
