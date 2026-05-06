@@ -21,10 +21,11 @@ export default function ProductGrid() {
 
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
 
-  const getCategoryName = (category: Product['category']) => {
-    if (!category) return ''
-    if (typeof category === 'string') return category
-    return category.name || ''
+  const getCategoryDisplay = (p: Product) => {
+    if (p.categories && p.categories.length > 0) return p.categories.map(c => c.name).join(' · ')
+    if (!p.category) return ''
+    if (typeof p.category === 'string') return p.category
+    return p.category.name || ''
   }
 
   if (loading) return (
@@ -70,7 +71,7 @@ export default function ProductGrid() {
             </div>
             <div className="product-info">
               <div className="product-name">{p.name}</div>
-              <div className="product-variant">{getCategoryName(p.category)}</div>
+              <div className="product-variant">{getCategoryDisplay(p)}</div>
               <div className="product-price">
                 {p.oldPrice && <span className="old">{fmt(p.oldPrice)}</span>}
                 {fmt(p.price)}

@@ -6,7 +6,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const { id } = await params
   const product = await prisma.product.findUnique({
     where: { id },
-    include: { category: true },
+    include: { categories: true },
   })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(product)
@@ -18,6 +18,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const body = await req.json()
+  const categoryIds: string[] = body.categoryIds ?? []
+  const sizes = body.sizes ?? []
+  const totalStock = sizes.length > 0
+    ? sizes.reduce((acc: number, s: { size: string; quantity: number }) => acc + (s.quantity || 0), 0)
+    : parseInt(body.stock) || 0
+
   const product = await prisma.product.update({
     where: { id },
     data: {
@@ -25,11 +31,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       slug: body.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
       description: body.description,
       price: parseFloat(body.price),
-      stock: parseInt(body.stock),
+      stock: totalStock,
+      sizes,
       images: body.images,
       active: body.active,
-      categoryId: body.categoryId || null,
+      categories: { set: categoryIds.map((cid: string) => ({ id: cid })) },
     },
+    include: { categories: true },
   })
   return NextResponse.json(product)
 }

@@ -26,17 +26,24 @@ function ColecoesContent() {
 
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
 
-  const getCategoryName = (category: Product['category']) => {
-    if (!category) return ''
-    if (typeof category === 'string') return category
-    return category.name || ''
+  const getProductCategoryNames = (p: Product): string[] => {
+    if (p.categories && p.categories.length > 0) return p.categories.map(c => c.name)
+    if (!p.category) return []
+    if (typeof p.category === 'string') return [p.category]
+    return p.category?.name ? [p.category.name] : []
   }
 
-  const categories = ['todos', ...Array.from(new Set(products.map(p => getCategoryName(p.category)).filter(Boolean)))]
+  const getCategoryDisplay = (p: Product) => getProductCategoryNames(p).join(' · ')
+
+  const allCategoryNames = Array.from(new Set(products.flatMap(p => getProductCategoryNames(p)).filter(Boolean)))
+  const categories = ['todos', ...allCategoryNames]
 
   const filtered = filter === 'todos'
     ? products.filter(p => p.active !== false)
-    : products.filter(p => p.active !== false && getCategoryName(p.category).toLowerCase() === filter.toLowerCase())
+    : products.filter(p =>
+        p.active !== false &&
+        getProductCategoryNames(p).some(name => name.toLowerCase() === filter.toLowerCase())
+      )
 
   return (
     <>
@@ -95,7 +102,7 @@ function ColecoesContent() {
                 </div>
                 <div className="product-info">
                   <div className="product-name">{p.name}</div>
-                  <div className="product-variant">{getCategoryName(p.category)}</div>
+                  <div className="product-variant">{getCategoryDisplay(p)}</div>
                   <div className="product-price">
                     {p.oldPrice && <span className="old">{fmt(p.oldPrice)}</span>}
                     {fmt(p.price)}

@@ -2,10 +2,23 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+export interface ProductSize {
+  size: string
+  quantity: number
+}
+
+export interface ProductCategory {
+  id: string
+  name: string
+  slug: string
+}
+
 export interface Product {
   id: string | number
   name: string
   category?: string | { name: string } | null
+  categories?: ProductCategory[]
+  sizes?: ProductSize[]
   price: number
   oldPrice?: number | null
   badge?: string | null
