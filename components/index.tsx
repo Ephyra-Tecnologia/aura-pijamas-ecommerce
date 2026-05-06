@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCartStore, useUIStore } from '@/store/cart'
 import Image from 'next/image'
 
