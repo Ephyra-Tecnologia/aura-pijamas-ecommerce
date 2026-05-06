@@ -224,11 +224,37 @@ export function CartDrawer() {
 export function ProductModal() {
   const { modalProduct, closeModal, showToast } = useUIStore()
   const addItem = useCartStore(s => s.addItem)
-  const [selectedSize, setSelectedSize] = useState('M')
+  const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState(0)
+
+  useEffect(() => {
+    if (modalProduct) {
+      const sizes = modalProduct.sizes ?? []
+      const firstAvailable = sizes.find(s => s.quantity > 0)
+      setSelectedSize(firstAvailable?.size ?? (sizes[0]?.size ?? ''))
+      setSelectedColor(0)
+    }
+  }, [modalProduct])
+
   if (!modalProduct) return null
+
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
-  const handleAdd = () => { addItem(modalProduct, selectedSize); closeModal(); showToast('Produto adicionado ao carrinho ✦') }
+  const sizes = modalProduct.sizes ?? []
+  const hasSizes = sizes.length > 0
+  const categoryDisplay = modalProduct.categories?.map(c => c.name).join(' · ')
+    || (typeof modalProduct.category === 'string' ? modalProduct.category : modalProduct.category?.name)
+    || ''
+
+  const selectedSizeEntry = sizes.find(s => s.size === selectedSize)
+  const outOfStock = hasSizes && selectedSizeEntry?.quantity === 0
+
+  const handleAdd = () => {
+    if (outOfStock) return
+    addItem(modalProduct, selectedSize || 'Único')
+    closeModal()
+    showToast('Produto adicionado ao carrinho ✦')
+  }
+
   return (
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
       <div className="modal" style={{ position: 'relative' }}>
@@ -243,23 +269,56 @@ export function ProductModal() {
         </div>
         <div className="modal-content">
           <button className="modal-close" onClick={closeModal} style={{ position: 'absolute', top: 16, right: 16 }}>✕</button>
-          <p className="modal-category">{typeof modalProduct.category === 'string' ? modalProduct.category : modalProduct.category?.name || ''}</p>
+          <p className="modal-category">{categoryDisplay}</p>
           <h2 className="modal-name">{modalProduct.name}</h2>
           <p className="modal-price">{fmt(modalProduct.price)}</p>
-          <p className="modal-desc">{modalProduct.desc}</p>
-          <p className="size-label">Tamanho</p>
-          <div className="size-grid">
-            {['PP','P','M','G','GG'].map(s => (
-              <button key={s} className={`size-btn ${selectedSize === s ? 'active' : ''}`} onClick={() => setSelectedSize(s)}>{s}</button>
-            ))}
-          </div>
-          <p className="size-label">Cor</p>
-          <div className="color-grid">
-            {(modalProduct.colors ?? []).map((c, i) => (
-              <div key={i} className={`color-swatch ${selectedColor === i ? 'active' : ''}`} style={{ background: c }} onClick={() => setSelectedColor(i)} />
-            ))}
-          </div>
-          <button className="btn-add" onClick={handleAdd}>Adicionar ao carrinho</button>
+          <p className="modal-desc">{modalProduct.desc || modalProduct.description}</p>
+
+          {hasSizes && (
+            <>
+              <p className="size-label">Tamanho</p>
+              <div className="size-grid">
+                {sizes.map(s => (
+                  <button
+                    key={s.size}
+                    className={`size-btn ${selectedSize === s.size ? 'active' : ''}`}
+                    onClick={() => setSelectedSize(s.size)}
+                    disabled={s.quantity === 0}
+                    style={{ opacity: s.quantity === 0 ? 0.35 : 1, cursor: s.quantity === 0 ? 'not-allowed' : 'pointer', position: 'relative' }}
+                    title={s.quantity === 0 ? 'Esgotado' : `${s.quantity} disponíveis`}
+                  >
+                    {s.size}
+                    {s.quantity === 0 && (
+                      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ width: '70%', height: 1, background: 'currentColor', transform: 'rotate(-45deg)', display: 'block' }} />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {selectedSizeEntry && selectedSizeEntry.quantity > 0 && selectedSizeEntry.quantity <= 3 && (
+                <p style={{ fontSize: 11, color: '#c0392b', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  Últimas {selectedSizeEntry.quantity} unidade{selectedSizeEntry.quantity > 1 ? 's' : ''}
+                </p>
+              )}
+            </>
+          )}
+
+          {(modalProduct.colors ?? []).length > 0 && (
+            <>
+              <p className="size-label">Cor</p>
+              <div className="color-grid">
+                {(modalProduct.colors ?? []).map((c, i) => (
+                  <div key={i} className={`color-swatch ${selectedColor === i ? 'active' : ''}`} style={{ background: c }} onClick={() => setSelectedColor(i)} />
+                ))}
+              </div>
+            </>
+          )}
+
+          <button className="btn-add" onClick={handleAdd} disabled={outOfStock}
+            style={{ opacity: outOfStock ? 0.5 : 1, cursor: outOfStock ? 'not-allowed' : 'pointer' }}>
+            {outOfStock ? 'Tamanho esgotado' : 'Adicionar ao carrinho'}
+          </button>
           <button className="btn-wishlist">♡ &nbsp;Salvar na lista de desejos</button>
         </div>
       </div>
