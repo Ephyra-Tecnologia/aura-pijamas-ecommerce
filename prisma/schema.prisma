@@ -24,6 +24,7 @@ model Product {
   sizes       Json        @default("[]")
   images      String[]
   active      Boolean     @default(true)
+  position    Int         @default(0)
   categories  Category[]
   orderItems  OrderItem[]
   createdAt   DateTime    @default(now())

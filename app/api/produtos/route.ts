@@ -5,7 +5,7 @@ import { auth } from '@/auth'
 export async function GET() {
   const products = await prisma.product.findMany({
     include: { categories: true },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
   })
   return NextResponse.json(products)
 }

@@ -133,6 +133,7 @@ export default function CheckoutPage() {
     setLoadingFrete(true)
     await new Promise(r => setTimeout(r, 800))
     setFreteOptions([
+      { name: 'Combinar Retirada Grátis', price: 0, days: 0 },
       { name: 'PAC', price: 18.90, days: 8 },
       { name: 'SEDEX', price: 34.50, days: 3 },
     ])
@@ -263,9 +264,9 @@ export default function CheckoutPage() {
                       <div key={i} onClick={() => setSelectedFrete(f)} style={{ border: `1px solid ${selectedFrete?.name === f.name ? 'var(--dark)' : 'var(--sand)'}`, padding: '12px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: selectedFrete?.name === f.name ? 'var(--sand)' : 'white' }}>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 400, color: 'var(--dark)' }}>{f.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--stone)' }}>até {f.days} dias úteis</div>
+                          <div style={{ fontSize: 11, color: 'var(--stone)' }}>{f.days === 0 ? 'A combinar' : `até ${f.days} dias úteis`}</div>
                         </div>
-                        <div style={{ fontSize: 14, color: 'var(--earth)' }}>{fmt(f.price)}</div>
+                        <div style={{ fontSize: 14, color: 'var(--earth)' }}>{f.price === 0 ? 'Grátis' : fmt(f.price)}</div>
                       </div>
                     ))}
                   </div>

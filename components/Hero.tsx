@@ -28,7 +28,6 @@ export default function Hero({ config = {} }: Props) {
         ) : (
           <div className="hero-img-placeholder" />
         )}
-        <span className="hero-label">Nova Coleção 2025</span>
       </div>
       <div className="hero-content">
         <p className="hero-tag" style={{ color: textColor }}>{tag}</p>
