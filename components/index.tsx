@@ -61,12 +61,12 @@ export function AboutStrip({ config = {} }: { config?: Record<string, string> })
   const aboutDesc = config.about_desc || 'Pijamas Aura nasceu para proporcionar conforto, presença e clima de leveza na sua melhor hora do dia. Desacelerar, sentir e se reconectar com a sua essência, esse é o verdadeiro luxo.'
   const aboutBtnText = config.about_btn_text || 'Sobre a Aura'
   const aboutBtnHref = config.about_btn_href || '/sobre'
-  const aboutOverline = config.about_overline || 'Nossa filosofia'
+  const aboutOverline = config.about_overline || ''
 
   return (
     <section className="about-strip">
       <div className="about-text">
-        <span className="overline">{aboutOverline}</span>
+        {aboutOverline && <span className="overline">{aboutOverline}</span>}
         <h2 className="about-heading" dangerouslySetInnerHTML={{ __html: aboutTitle }} />
         <p className="about-body">{aboutDesc}</p>
         <Link href={aboutBtnHref} className="hero-cta">
@@ -140,7 +140,7 @@ export function Footer() {
           <Link href="/" style={{ display: 'inline-block' }}>
             <Image src="/assets/aura-footer.png" alt="Aura Pijamas" height={52} width={180} style={{ objectFit: 'contain' }} />
           </Link>
-          <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--stone)', marginTop: 16, maxWidth: 240 }}>Pijamas feitos para quem valoriza o descanso como ritual.</p>
+          <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--stone)', marginTop: 16, maxWidth: 240 }}>Aura Pijamas, feito para sonhar.</p>
         </div>
         <div className="footer-col">
           <h4>Loja</h4>
@@ -157,7 +157,7 @@ export function Footer() {
         </div>
         <div className="footer-col">
           <h4>Ajuda</h4>
-          <Link href="#">Trocas e devoluções</Link>
+          <Link href="/trocas-devolucoes">Trocas e devoluções</Link>
           <Link href="#">Rastrear pedido</Link>
           <Link href="#">FAQ</Link>
           <Link href="#">Contato</Link>
@@ -221,6 +221,52 @@ export function CartDrawer() {
   )
 }
 
+const SIZE_CHART = [
+  { med: 'A - Busto',   pp: '80–84', p: '86–90', m: '92–96', g: '98–102', gg: '104–110', xgg: '112–118' },
+  { med: 'B - Cintura', pp: '66–70', p: '72–76', m: '78–82', g: '84–88',  gg: '90–96',   xgg: '98–104' },
+  { med: 'C - Quadril', pp: '90–94', p: '96–100', m: '102–106', g: '108–112', gg: '114–120', xgg: '122–128' },
+]
+const SIZE_COLS = ['PP (36)', 'P (38)', 'M (40)', 'G (42)', 'GG (44)', 'XGG (46)']
+
+function SizeChart() {
+  const [open, setOpen] = useState(false)
+  const tdStyle: React.CSSProperties = { padding: '8px 10px', fontSize: 11, textAlign: 'center', color: 'var(--earth)', borderBottom: '1px solid var(--sand)' }
+  const thStyle: React.CSSProperties = { padding: '8px 10px', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--stone)', fontWeight: 400, borderBottom: '1px solid var(--sand)' }
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button onClick={() => setOpen(o => !o)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', textDecoration: 'underline', padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+        Tabela de medidas (cm) {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div style={{ marginTop: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...thStyle, textAlign: 'left' }}>Medida</th>
+                {SIZE_COLS.map(c => <th key={c} style={thStyle}>{c}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {SIZE_CHART.map(row => (
+                <tr key={row.med}>
+                  <td style={{ ...tdStyle, textAlign: 'left', color: 'var(--dark)', fontWeight: 400 }}>{row.med}</td>
+                  <td style={tdStyle}>{row.pp}</td>
+                  <td style={tdStyle}>{row.p}</td>
+                  <td style={tdStyle}>{row.m}</td>
+                  <td style={tdStyle}>{row.g}</td>
+                  <td style={tdStyle}>{row.gg}</td>
+                  <td style={tdStyle}>{row.xgg}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={{ fontSize: 10, color: 'var(--stone)', marginTop: 6, letterSpacing: '0.05em' }}>Medidas em centímetros (cm).</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ProductModal() {
   const { modalProduct, closeModal, showToast } = useUIStore()
   const addItem = useCartStore(s => s.addItem)
@@ -272,7 +318,7 @@ export function ProductModal() {
           <p className="modal-category">{categoryDisplay}</p>
           <h2 className="modal-name">{modalProduct.name}</h2>
           <p className="modal-price">{fmt(modalProduct.price)}</p>
-          <p className="modal-desc">{modalProduct.desc || modalProduct.description}</p>
+          <p className="modal-desc" style={{ whiteSpace: 'pre-wrap' }}>{modalProduct.desc || modalProduct.description}</p>
 
           {hasSizes && (
             <>
@@ -314,6 +360,8 @@ export function ProductModal() {
               </div>
             </>
           )}
+
+          <SizeChart />
 
           <button className="btn-add" onClick={handleAdd} disabled={outOfStock}
             style={{ opacity: outOfStock ? 0.5 : 1, cursor: outOfStock ? 'not-allowed' : 'pointer' }}>
