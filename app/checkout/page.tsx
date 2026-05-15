@@ -133,7 +133,7 @@ export default function CheckoutPage() {
     setLoadingFrete(true)
     await new Promise(r => setTimeout(r, 800))
     setFreteOptions([
-      { name: 'Combinar Retirada Grátis', price: 0, days: 0 },
+      { name: 'Combinar Retirada Grátis - SP', price: 0, days: 0 },
       { name: 'PAC', price: 18.90, days: 8 },
       { name: 'SEDEX', price: 34.50, days: 3 },
     ])
