@@ -1,5 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@200;300;400&display=swap');
 
+@font-face {
+  font-family: 'Eyesome';
+  src: url('/fonts/eyesome-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Eyesome';
+  src: url('/fonts/eyesome-italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Eyesome Script';
+  src: url('/fonts/eyesome-script.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --cream: #F7F3EE;
   --sand: #E8DDD0;
@@ -10,6 +32,7 @@
   --white: #FDFAF7;
   --accent: #B8956A;
   --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-display: 'Eyesome', 'Cormorant Garamond', Georgia, serif;
   --font-sans: 'Jost', sans-serif;
   --transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
@@ -138,13 +161,13 @@ nav a:hover { opacity: 1; }
   margin-bottom: 24px;
 }
 .hero-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(44px, 5vw, 68px);
-  font-weight: 200;
-  line-height: 1.1;
+  font-weight: 400;
+  line-height: 1.15;
   color: var(--dark);
   margin-bottom: 32px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.01em;
 }
 .hero-title em { font-style: italic; color: var(--earth); }
 .hero-desc {
@@ -348,9 +371,9 @@ nav a:hover { opacity: 1; }
   display: block;
 }
 .about-heading {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(32px, 3vw, 48px);
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.2;
   margin-bottom: 24px;
 }
@@ -559,14 +582,14 @@ footer {
 .modal-overlay.open { opacity: 1; pointer-events: all; }
 .modal {
   background: var(--white);
-  max-width: 900px;
+  max-width: 960px;
   width: 100%;
   max-height: 90vh;
-  overflow-y: auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
   transform: translateY(20px);
   transition: transform var(--transition);
+  overflow: hidden;
 }
 .modal-overlay.open .modal { transform: translateY(0); }
 .modal-img { aspect-ratio: 3/4; background: var(--sand); position: relative; }
@@ -576,7 +599,7 @@ footer {
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-serif); font-style: italic; color: var(--stone);
 }
-.modal-content { padding: 48px 40px; }
+.modal-content { padding: 40px 36px; overflow-y: auto; max-height: 90vh; }
 .modal-close {
   position: absolute; top: 16px; right: 16px;
   background: var(--white); border: none;
@@ -639,11 +662,16 @@ footer {
   .newsletter { grid-template-columns: 1fr; gap: 36px; padding: 60px 6vw; }
   .newsletter-title { font-size: 34px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 36px; }
-  .modal { grid-template-columns: 1fr; }
-  .modal-img { aspect-ratio: 4/3; }
-  .modal-overlay { padding: 16px; align-items: flex-end; }
+  .modal-overlay { padding: 16px; }
   .section-title { font-size: 32px; }
   .section-header { padding: 56px 5vw 28px; }
+}
+
+@media (max-width: 640px) {
+  .modal { grid-template-columns: 1fr; }
+  .modal-img { aspect-ratio: 4/3; }
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal { max-height: 92vh; border-radius: 12px 12px 0 0; }
 }
 
 @media (max-width: 480px) {

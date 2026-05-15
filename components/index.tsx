@@ -68,13 +68,6 @@ export function AboutStrip({ config = {} }: { config?: Record<string, string> })
       <div className="about-text">
         {aboutOverline && <span className="overline">{aboutOverline}</span>}
         <h2 className="about-heading" dangerouslySetInnerHTML={{ __html: aboutTitle }} />
-        <p className="about-body">{aboutDesc}</p>
-        <Link href={aboutBtnHref} className="hero-cta">
-          {aboutBtnText}
-          <svg width="20" height="8" fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 20 8">
-            <path d="M0 4h18m-4-3.5L18 4l-4 3.5"/>
-          </svg>
-        </Link>
       </div>
       <div className="about-image">
         {bannerSobre ? (
