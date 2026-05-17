@@ -9,14 +9,88 @@ function mpHeaders(idempotencyKey?: string) {
   }
 }
 
-export async function criarPagamentoPix(data: {
+interface CartItem {
+  id: string
+  name: string
+  qty: number
+  price: number
+}
+
+interface PayerAddress {
+  zipCode: string
+  street: string
+  number: string
+  city: string
+  state: string
+}
+
+interface PixData {
   amount: number
   email: string
   firstName: string
   lastName: string
   cpf: string
+  phone?: string
   description: string
-}) {
+  items?: CartItem[]
+  address?: PayerAddress
+}
+
+interface CartaoData {
+  amount: number
+  token: string
+  installments: number
+  paymentMethodId: string
+  email: string
+  firstName?: string
+  lastName?: string
+  cpf: string
+  phone?: string
+  description: string
+  items?: CartItem[]
+  address?: PayerAddress
+}
+
+function buildAdditionalInfo(data: { firstName?: string; lastName?: string; phone?: string; items?: CartItem[]; address?: PayerAddress }) {
+  const phoneDigits = data.phone?.replace(/\D/g, '') ?? ''
+  const areaCode = phoneDigits.slice(0, 2)
+  const phoneNumber = phoneDigits.slice(2)
+
+  return {
+    items: (data.items ?? []).map(item => ({
+      id: String(item.id),
+      title: item.name,
+      quantity: item.qty,
+      unit_price: item.price,
+      category_id: 'fashion',
+    })),
+    payer: {
+      first_name: data.firstName ?? '',
+      last_name: data.lastName ?? '',
+      ...(areaCode && phoneNumber ? { phone: { area_code: areaCode, number: phoneNumber } } : {}),
+      ...(data.address ? {
+        address: {
+          zip_code: data.address.zipCode.replace(/\D/g, ''),
+          street_name: data.address.street,
+          street_number: data.address.number,
+        }
+      } : {}),
+    },
+    ...(data.address ? {
+      shipments: {
+        receiver_address: {
+          zip_code: data.address.zipCode.replace(/\D/g, ''),
+          street_name: data.address.street,
+          street_number: data.address.number,
+          city_name: data.address.city,
+          state_name: data.address.state,
+        }
+      }
+    } : {}),
+  }
+}
+
+export async function criarPagamentoPix(data: PixData) {
   const res = await fetch(`${MP_API}/v1/payments`, {
     method: 'POST',
     headers: mpHeaders(crypto.randomUUID()),
@@ -30,6 +104,7 @@ export async function criarPagamentoPix(data: {
         last_name: data.lastName,
         identification: { type: 'CPF', number: data.cpf.replace(/\D/g, '') },
       },
+      additional_info: buildAdditionalInfo(data),
     }),
   })
   const result = await res.json()
@@ -37,15 +112,7 @@ export async function criarPagamentoPix(data: {
   return result
 }
 
-export async function criarPagamentoCartao(data: {
-  amount: number
-  token: string
-  installments: number
-  paymentMethodId: string
-  email: string
-  cpf: string
-  description: string
-}) {
+export async function criarPagamentoCartao(data: CartaoData) {
   const res = await fetch(`${MP_API}/v1/payments`, {
     method: 'POST',
     headers: mpHeaders(crypto.randomUUID()),
@@ -57,8 +124,11 @@ export async function criarPagamentoCartao(data: {
       payment_method_id: data.paymentMethodId,
       payer: {
         email: data.email,
+        first_name: data.firstName ?? '',
+        last_name: data.lastName ?? '',
         identification: { type: 'CPF', number: data.cpf.replace(/\D/g, '') },
       },
+      additional_info: buildAdditionalInfo(data),
     }),
   })
   const result = await res.json()
