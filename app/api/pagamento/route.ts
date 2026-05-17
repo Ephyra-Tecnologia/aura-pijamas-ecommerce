@@ -11,6 +11,21 @@ export async function POST(req: NextRequest) {
     const [firstName, ...rest] = (customer.name as string).trim().split(' ')
     const lastName = rest.join(' ') || firstName
 
+    const addressInfo = shipping?.address ? {
+      zipCode: shipping.address.zip_code ?? '',
+      street: shipping.address.line_1 ?? '',
+      number: '',
+      city: shipping.address.city ?? '',
+      state: shipping.address.state ?? '',
+    } : undefined
+
+    const itemsInfo = cartItems.map((i: any) => ({
+      id: String(i.id),
+      name: i.name,
+      qty: i.qty,
+      price: i.price,
+    }))
+
     let mpPayment: any
 
     if (paymentMethod === 'pix') {
@@ -20,7 +35,10 @@ export async function POST(req: NextRequest) {
         firstName,
         lastName,
         cpf: customer.document,
+        phone: customer.phone,
         description,
+        items: itemsInfo,
+        address: addressInfo,
       })
     } else {
       mpPayment = await criarPagamentoCartao({
@@ -29,8 +47,13 @@ export async function POST(req: NextRequest) {
         installments: body.installments ?? 1,
         paymentMethodId: paymentMethodId ?? 'visa',
         email: customer.email,
+        firstName,
+        lastName,
         cpf: customer.document,
+        phone: customer.phone,
         description,
+        items: itemsInfo,
+        address: addressInfo,
       })
     }
 
