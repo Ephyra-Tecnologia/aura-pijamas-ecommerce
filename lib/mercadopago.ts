@@ -137,6 +137,46 @@ export async function criarPagamentoCartao(data: CartaoData) {
   return result
 }
 
+export async function criarPreferencia(data: {
+  items: CartItem[]
+  payer: { email: string; firstName: string; lastName: string }
+  externalReference: string
+  baseUrl: string
+  notificationUrl: string
+}) {
+  const res = await fetch(`${MP_API}/checkout/preferences`, {
+    method: 'POST',
+    headers: mpHeaders(crypto.randomUUID()),
+    body: JSON.stringify({
+      items: data.items.map(item => ({
+        id: String(item.id),
+        title: item.name,
+        quantity: item.qty,
+        unit_price: item.price,
+        currency_id: 'BRL',
+      })),
+      payer: {
+        email: data.payer.email,
+        name: `${data.payer.firstName} ${data.payer.lastName}`.trim(),
+      },
+      payment_methods: {
+        excluded_payment_types: [{ id: 'ticket' }],
+      },
+      back_urls: {
+        success: `${data.baseUrl}/checkout/sucesso`,
+        failure: `${data.baseUrl}/checkout/cancelado`,
+        pending: `${data.baseUrl}/checkout/pendente`,
+      },
+      auto_return: 'approved',
+      external_reference: data.externalReference,
+      notification_url: data.notificationUrl,
+    }),
+  })
+  const result = await res.json()
+  console.log('MP PREFERENCE RESPONSE:', JSON.stringify(result, null, 2))
+  return result
+}
+
 export async function buscarPagamento(paymentId: string) {
   const res = await fetch(`${MP_API}/v1/payments/${paymentId}`, {
     headers: mpHeaders(),

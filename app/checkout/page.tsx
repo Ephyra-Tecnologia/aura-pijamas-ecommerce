@@ -108,30 +108,8 @@ export default function CheckoutPage() {
   const [documento, setDocumento] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
   const [pixData, setPixData] = useState<{ qrCode: string; qrCodeUrl: string } | null>(null)
-  const [cardPaid, setCardPaid] = useState(false)
-  const [cardPending, setCardPending] = useState(false)
   const [processingPayment, setProcessingPayment] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
-  const [cardForm, setCardForm] = useState({ number: '', holderName: '', expiry: '', cvv: '', installments: 1 })
-  const [mpInstance, setMpInstance] = useState<any>(null)
-
-  const setCardField = (key: keyof typeof cardForm, value: string | number) =>
-    setCardForm(f => ({ ...f, [key]: value }))
-
-  useEffect(() => {
-    const script = document.createElement('script')
-    script.src = 'https://sdk.mercadopago.com/js/v2'
-    script.async = true
-    script.onload = () => {
-      const publicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY
-      if (window.MercadoPago && publicKey) {
-        const mp = new window.MercadoPago(publicKey, { locale: 'pt-BR' })
-        setMpInstance(mp)
-      }
-    }
-    document.body.appendChild(script)
-    return () => { document.body.removeChild(script) }
-  }, [])
 
   const [form, setForm] = useState<FormData>({
     name: '', email: '', phone: '',
@@ -183,34 +161,6 @@ export default function CheckoutPage() {
       let cardToken: string | undefined
       let paymentMethodId: string | undefined
 
-      if (paymentMethod === 'credit_card') {
-        if (!mpInstance) {
-          alert('SDK do Mercado Pago ainda está carregando. Aguarde um momento e tente novamente.')
-          setProcessingPayment(false)
-          return
-        }
-        const [expMonth, expYear] = cardForm.expiry.split('/')
-        const twoDigitYear = expYear?.length === 4 ? expYear.slice(2) : expYear
-
-        const tokenResponse = await mpInstance.createCardToken({
-          cardNumber: cardForm.number.replace(/\s/g, ''),
-          cardholderName: cardForm.holderName,
-          cardExpirationMonth: String(parseInt(expMonth)).padStart(2, '0'),
-          cardExpirationYear: twoDigitYear,
-          securityCode: cardForm.cvv,
-          identificationType: 'CPF',
-          identificationNumber: documento.replace(/\D/g, ''),
-        })
-
-        if (!tokenResponse?.id) {
-          alert('Erro ao processar dados do cartão. Verifique os campos e tente novamente.')
-          setProcessingPayment(false)
-          return
-        }
-        cardToken = tokenResponse.id
-        paymentMethodId = detectCardBrand(cardForm.number)
-      }
-
       const res = await fetch('/api/pagamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -222,32 +172,23 @@ export default function CheckoutPage() {
           cartItems: items,
           total: totalFinal,
           paymentMethod,
-          cardToken,
-          paymentMethodId,
-          installments: cardForm.installments,
         })
       })
       const data = await res.json()
 
       if (!res.ok) {
-        const detail = data.statusDetail ? `\n\nCódigo: ${data.statusDetail}` : ''
-        alert((data.error ?? 'Erro ao processar pagamento. Tente novamente.') + detail)
+        alert(data.error ?? 'Erro ao processar pagamento. Tente novamente.')
+        return
+      }
+
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
         return
       }
 
       setOrderId(data.orderId)
       if (data.pix) {
         setPixData(data.pix)
-      } else if (data.card) {
-        if (data.card.status === 'approved') {
-          setCardPaid(true)
-        } else if (data.card.threeDsUrl) {
-          window.location.href = data.card.threeDsUrl
-        } else if (data.card.status === 'in_process' || data.card.status === 'pending') {
-          setCardPending(true)
-        } else {
-          alert(`Pagamento recusado (${data.card.statusDetail ?? data.card.status ?? 'erro'}). Verifique os dados e tente novamente.`)
-        }
       }
     } catch (err) {
       console.error(err)
@@ -366,7 +307,7 @@ export default function CheckoutPage() {
           )}
 
           {/* Step 3 */}
-          {step === 3 && !pixData && !cardPaid && !cardPending && (
+          {step === 3 && !pixData && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>Pagamento</h2>
               <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
@@ -393,71 +334,13 @@ export default function CheckoutPage() {
                 </div>
               </div>
               {paymentMethod === 'credit_card' && (
-                <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 4 }}>Dados do cartão</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <label style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)' }}>Número do cartão</label>
-                    <input
-                      type="text"
-                      placeholder="0000 0000 0000 0000"
-                      value={cardForm.number}
-                      maxLength={19}
-                      onChange={e => {
-                        const v = e.target.value.replace(/\D/g, '').slice(0, 16)
-                        setCardField('number', v.replace(/(.{4})/g, '$1 ').trim())
-                      }}
-                      style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)', letterSpacing: '0.08em' }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <label style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)' }}>Nome no cartão</label>
-                    <input
-                      type="text"
-                      placeholder="Como está no cartão"
-                      value={cardForm.holderName}
-                      onChange={e => setCardField('holderName', e.target.value.toUpperCase())}
-                      style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
-                    />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <label style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)' }}>Validade</label>
-                      <input
-                        type="text"
-                        placeholder="MM/AA"
-                        value={cardForm.expiry}
-                        maxLength={5}
-                        onChange={e => {
-                          const v = e.target.value.replace(/\D/g, '').slice(0, 4)
-                          setCardField('expiry', v.length > 2 ? v.slice(0, 2) + '/' + v.slice(2) : v)
-                        }}
-                        style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <label style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)' }}>CVV</label>
-                      <input
-                        type="text"
-                        placeholder="000"
-                        value={cardForm.cvv}
-                        maxLength={4}
-                        onChange={e => setCardField('cvv', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <label style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)' }}>Parcelas</label>
-                    <select
-                      value={cardForm.installments}
-                      onChange={e => setCardField('installments', parseInt(e.target.value))}
-                      style={{ background: 'white', border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)', cursor: 'pointer' }}
-                    >
-                      {[1,2,3,4,5,6].map(n => (
-                        <option key={n} value={n}>{n}x de {fmt(totalFinal / n)}{n === 1 ? ' sem juros' : ' sem juros'}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <p style={{ fontSize: 13, color: 'var(--stone)', lineHeight: 1.7, margin: 0 }}>
+                    Você será redirecionado para o ambiente seguro do Mercado Pago para inserir os dados do cartão.
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--earth)', margin: 0 }}>
+                    Aceitamos Visa, Mastercard, Elo, Hipercard e American Express.
+                  </p>
                 </div>
               )}
 
@@ -479,35 +362,6 @@ export default function CheckoutPage() {
             />
           )}
 
-          {/* Cartão em revisão */}
-          {cardPending && orderId && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 64 }}>⏳</div>
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, color: 'var(--dark)' }}>Pedido recebido!</h2>
-              <p style={{ fontSize: 14, color: 'var(--stone)', maxWidth: 400, lineHeight: 1.7 }}>
-                Seu pedido foi registrado com sucesso. O pagamento está sendo processado e você receberá uma confirmação por e-mail assim que aprovado.
-              </p>
-              <p style={{ fontSize: 13, color: 'var(--earth)' }}>Pedido #{orderId.slice(-8).toUpperCase()}</p>
-              <a href="/" style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '14px 32px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', textDecoration: 'none', marginTop: 8 }}>
-                Voltar para a loja
-              </a>
-            </div>
-          )}
-
-          {/* Cartão confirmado */}
-          {cardPaid && orderId && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 64 }}>✅</div>
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, color: 'var(--dark)' }}>Pagamento aprovado!</h2>
-              <p style={{ fontSize: 14, color: 'var(--stone)', maxWidth: 360, lineHeight: 1.7 }}>
-                Seu pedido foi confirmado. Em breve você receberá um e-mail com os detalhes.
-              </p>
-              <p style={{ fontSize: 13, color: 'var(--earth)' }}>Pedido #{orderId.slice(-8).toUpperCase()}</p>
-              <a href="/" style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '14px 32px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', textDecoration: 'none', marginTop: 8 }}>
-                Voltar para a loja
-              </a>
-            </div>
-          )}
         </div>
 
         {/* RESUMO */}
