@@ -34,6 +34,13 @@ export async function criarPedidoPagarme(data: {
             exp_month: data.cardData.exp_month,
             exp_year: data.cardData.exp_year,
             cvv: data.cardData.cvv,
+            billing_address: {
+              line_1: data.shipping.address.line_1,
+              zip_code: data.shipping.address.zip_code,
+              city: data.shipping.address.city,
+              state: data.shipping.address.state,
+              country: 'BR',
+            }
           }
         }
       }
