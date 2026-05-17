@@ -12,7 +12,36 @@ export async function criarPedidoPagarme(data: {
   document: string
   items: { name: string; amount: number; quantity: number }[]
   shipping: { amount: number; address: { line_1: string; zip_code: string; city: string; state: string; country: string } }
+  paymentMethod: 'pix' | 'credit_card'
+  cardData?: {
+    number: string
+    holder_name: string
+    exp_month: number
+    exp_year: number
+    cvv: string
+    installments: number
+  }
 }) {
+  const payment = data.paymentMethod === 'credit_card' && data.cardData
+    ? {
+        payment_method: 'credit_card',
+        credit_card: {
+          installments: data.cardData.installments,
+          statement_descriptor: 'AURA PIJAMAS',
+          card: {
+            number: data.cardData.number.replace(/\s/g, ''),
+            holder_name: data.cardData.holder_name,
+            exp_month: data.cardData.exp_month,
+            exp_year: data.cardData.exp_year,
+            cvv: data.cardData.cvv,
+          }
+        }
+      }
+    : {
+        payment_method: 'pix',
+        pix: { expires_in: 3600 }
+      }
+
   const res = await fetch(`${PAGARME_API}/orders`, {
     method: 'POST',
     headers,
@@ -41,10 +70,7 @@ export async function criarPedidoPagarme(data: {
         description: 'Entrega',
         address: data.shipping.address,
       },
-      payments: [{
-        payment_method: 'pix',
-        pix: { expires_in: 3600 }
-      }]
+      payments: [payment]
     })
   })
   const result = await res.json()

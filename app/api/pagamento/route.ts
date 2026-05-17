@@ -6,7 +6,7 @@ import { auth } from '@/auth'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { customer, items, shipping, cartItems } = body
+    const { customer, items, shipping, cartItems, paymentMethod, cardData } = body
 
     // Cria o pedido no Pagar.me
     const pagarmeOrder = await criarPedidoPagarme({
@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
       document: customer.document,
       items: items,
       shipping: shipping,
+      paymentMethod: paymentMethod ?? 'pix',
+      cardData: cardData,
     })
 
     if (pagarmeOrder.status === 'failed') {
@@ -45,18 +47,25 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // Retorna dados do Pix se for pagamento Pix
-    const pixCharge = pagarmeOrder.charges?.[0]
-    const pixData = pixCharge?.last_transaction
+    const charge = pagarmeOrder.charges?.[0]
+    const lastTransaction = charge?.last_transaction
+
+    const pix = paymentMethod === 'pix' && lastTransaction ? {
+      qrCode: lastTransaction.qr_code,
+      qrCodeUrl: lastTransaction.qr_code_url,
+      expiresAt: lastTransaction.expires_at,
+    } : null
+
+    const cardStatus = paymentMethod === 'credit_card' ? {
+      status: charge?.status ?? pagarmeOrder.status,
+      authCode: lastTransaction?.acquirer_auth_code,
+    } : null
 
     return NextResponse.json({
       orderId: order.id,
       pagarmeOrderId: pagarmeOrder.id,
-      pix: pixData ? {
-        qrCode: pixData.qr_code,
-        qrCodeUrl: pixData.qr_code_url,
-        expiresAt: pixData.expires_at,
-      } : null,
+      pix,
+      card: cardStatus,
     })
   } catch (error) {
     console.error('Erro no pagamento:', error)
