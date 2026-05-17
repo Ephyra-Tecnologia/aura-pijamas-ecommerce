@@ -20,8 +20,14 @@ export async function POST(req: NextRequest) {
       cardData: cardData,
     })
 
+    if (!pagarmeOrder.id) {
+      console.error('Pagar.me error:', pagarmeOrder)
+      const msg = pagarmeOrder.message ?? pagarmeOrder.errors?.[0]?.message ?? 'Erro ao criar pedido no Pagar.me'
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
+
     if (pagarmeOrder.status === 'failed') {
-      return NextResponse.json({ error: 'Erro ao criar pedido' }, { status: 400 })
+      return NextResponse.json({ error: 'Pedido recusado pelo Pagar.me' }, { status: 400 })
     }
 
     // Salva o pedido no banco
