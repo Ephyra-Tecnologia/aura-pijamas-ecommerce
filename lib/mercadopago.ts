@@ -122,6 +122,7 @@ export async function criarPagamentoCartao(data: CartaoData) {
       token: data.token,
       installments: data.installments,
       payment_method_id: data.paymentMethodId,
+      three_d_secure_mode: 'optional',
       payer: {
         email: data.email,
         first_name: data.firstName ?? '',
