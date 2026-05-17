@@ -1,44 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { criarPedidoPagarme } from '@/lib/pagarme'
+import { criarPagamentoPix, criarPagamentoCartao } from '@/lib/mercadopago'
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { customer, items, shipping, cartItems, paymentMethod, cardData } = body
+    const { customer, cartItems, shipping, paymentMethod, cardToken, paymentMethodId, total } = body
 
-    // Cria o pedido no Pagar.me
-    const pagarmeOrder = await criarPedidoPagarme({
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      document: customer.document,
-      items: items,
-      shipping: shipping,
-      paymentMethod: paymentMethod ?? 'pix',
-      cardData: cardData,
-    })
+    const description = cartItems.map((i: any) => i.name).join(', ').slice(0, 100)
+    const [firstName, ...rest] = (customer.name as string).trim().split(' ')
+    const lastName = rest.join(' ') || firstName
 
-    if (!pagarmeOrder.id) {
-      console.error('Pagar.me error:', pagarmeOrder)
-      const msg = pagarmeOrder.message ?? pagarmeOrder.errors?.[0]?.message ?? 'Erro ao criar pedido no Pagar.me'
-      return NextResponse.json({ error: msg }, { status: 400 })
+    let mpPayment: any
+
+    if (paymentMethod === 'pix') {
+      mpPayment = await criarPagamentoPix({
+        amount: total,
+        email: customer.email,
+        firstName,
+        lastName,
+        cpf: customer.document,
+        description,
+      })
+    } else {
+      mpPayment = await criarPagamentoCartao({
+        amount: total,
+        token: cardToken,
+        installments: body.installments ?? 1,
+        paymentMethodId: paymentMethodId ?? 'visa',
+        email: customer.email,
+        cpf: customer.document,
+        description,
+      })
     }
 
-    if (pagarmeOrder.status === 'failed') {
-      const failedCharge = pagarmeOrder.charges?.[0]
-      const failedTx = failedCharge?.last_transaction
-      const detail = failedTx?.acquirer_message ?? failedTx?.gateway_response?.errors?.[0]?.message ?? failedCharge?.status ?? 'recusado'
-      console.error('Pagar.me charge failed:', JSON.stringify(failedTx, null, 2))
-      return NextResponse.json({ error: `Pagamento recusado: ${detail}` }, { status: 400 })
+    if (mpPayment.error || mpPayment.status === 'rejected') {
+      const detail = mpPayment.message ?? mpPayment.cause?.[0]?.description ?? 'Pagamento recusado'
+      return NextResponse.json({ error: detail }, { status: 400 })
     }
 
-    // Salva o pedido no banco
     const order = await prisma.order.create({
       data: {
-        status: 'PENDING',
-        total: body.total,
+        status: mpPayment.status === 'approved' ? 'PAID' : 'PENDING',
+        total,
         name: customer.name,
         email: customer.email,
         phone: customer.phone,
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
         address: shipping.address.line_1,
         city: shipping.address.city,
         state: shipping.address.state,
-        pagarmeId: pagarmeOrder.id,
+        pagarmeId: String(mpPayment.id),
         items: {
           create: cartItems.map((item: any) => ({
             quantity: item.qty,
@@ -57,24 +61,21 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    const charge = pagarmeOrder.charges?.[0]
-    const lastTransaction = charge?.last_transaction
+    const pixData = paymentMethod === 'pix'
+      ? mpPayment.point_of_interaction?.transaction_data
+      : null
 
-    const pix = paymentMethod === 'pix' && lastTransaction ? {
-      qrCode: lastTransaction.qr_code,
-      qrCodeUrl: lastTransaction.qr_code_url,
-      expiresAt: lastTransaction.expires_at,
-    } : null
-
-    const cardStatus = paymentMethod === 'credit_card' ? {
-      status: charge?.status ?? pagarmeOrder.status,
-      authCode: lastTransaction?.acquirer_auth_code,
-    } : null
+    const cardStatus = paymentMethod === 'credit_card'
+      ? { status: mpPayment.status, statusDetail: mpPayment.status_detail }
+      : null
 
     return NextResponse.json({
       orderId: order.id,
-      pagarmeOrderId: pagarmeOrder.id,
-      pix,
+      mpPaymentId: mpPayment.id,
+      pix: pixData ? {
+        qrCode: pixData.qr_code,
+        qrCodeUrl: `data:image/png;base64,${pixData.qr_code_base64}`,
+      } : null,
       card: cardStatus,
     })
   } catch (error) {

@@ -4,6 +4,18 @@ import { useCartStore } from '@/store/cart'
 import Link from 'next/link'
 import Image from 'next/image'
 
+declare global { interface Window { MercadoPago: any } }
+
+function detectCardBrand(number: string): string {
+  const n = number.replace(/\s/g, '')
+  if (/^4/.test(n)) return 'visa'
+  if (/^(5[1-5]|2[2-7])/.test(n)) return 'master'
+  if (/^3[47]/.test(n)) return 'amex'
+  if (/^606282/.test(n)) return 'hipercard'
+  if (/^(636368|438935|504175|451416|636297|5067|4576|4011|506699)/.test(n)) return 'elo'
+  return 'visa'
+}
+
 interface FreteOption {
   name: string
   price: number
@@ -103,6 +115,15 @@ export default function CheckoutPage() {
 
   const setCardField = (key: keyof typeof cardForm, value: string | number) =>
     setCardForm(f => ({ ...f, [key]: value }))
+
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = 'https://sdk.mercadopago.com/js/v2'
+    script.async = true
+    document.body.appendChild(script)
+    return () => { document.body.removeChild(script) }
+  }, [])
+
   const [form, setForm] = useState<FormData>({
     name: '', email: '', phone: '',
     zipCode: '', address: '', number: '',
@@ -150,18 +171,36 @@ export default function CheckoutPage() {
   const handlePayment = async () => {
     setProcessingPayment(true)
     try {
-      let cardData = undefined
+      let cardToken: string | undefined
+      let paymentMethodId: string | undefined
+
       if (paymentMethod === 'credit_card') {
+        if (!window.MercadoPago) {
+          alert('SDK do Mercado Pago ainda está carregando. Aguarde um momento e tente novamente.')
+          setProcessingPayment(false)
+          return
+        }
+        const mp = new window.MercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY)
         const [expMonth, expYear] = cardForm.expiry.split('/')
         const fullYear = parseInt(expYear) < 100 ? 2000 + parseInt(expYear) : parseInt(expYear)
-        cardData = {
-          number: cardForm.number,
-          holder_name: cardForm.holderName,
-          exp_month: parseInt(expMonth),
-          exp_year: fullYear,
-          cvv: cardForm.cvv,
-          installments: cardForm.installments,
+
+        const tokenResponse = await mp.createCardToken({
+          cardNumber: cardForm.number.replace(/\s/g, ''),
+          cardholderName: cardForm.holderName,
+          cardExpirationMonth: String(parseInt(expMonth)).padStart(2, '0'),
+          cardExpirationYear: String(fullYear),
+          securityCode: cardForm.cvv,
+          identificationType: 'CPF',
+          identificationNumber: documento.replace(/\D/g, ''),
+        })
+
+        if (!tokenResponse?.id) {
+          alert('Erro ao processar dados do cartão. Verifique os campos e tente novamente.')
+          setProcessingPayment(false)
+          return
         }
+        cardToken = tokenResponse.id
+        paymentMethodId = detectCardBrand(cardForm.number)
       }
 
       const res = await fetch('/api/pagamento', {
@@ -169,15 +208,15 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer: { name: form.name, email: form.email, phone: form.phone, document: documento },
-          items: items.map(item => ({ name: item.name, amount: Math.round(item.price * 100), quantity: item.qty })),
           shipping: {
-            amount: Math.round((selectedFrete?.price || 0) * 100),
             address: { line_1: `${form.address}, ${form.number}`, zip_code: form.zipCode.replace(/\D/g, ''), city: form.city, state: form.state, country: 'BR' }
           },
           cartItems: items,
           total: totalFinal,
           paymentMethod,
-          cardData,
+          cardToken,
+          paymentMethodId,
+          installments: cardForm.installments,
         })
       })
       const data = await res.json()
@@ -191,14 +230,14 @@ export default function CheckoutPage() {
       if (data.pix) {
         setPixData(data.pix)
       } else if (data.card) {
-        const approvedStatuses = ['paid', 'authorized', 'captured', 'pre_authorized']
-        if (approvedStatuses.includes(data.card.status)) {
+        if (data.card.status === 'approved') {
           setCardPaid(true)
         } else {
-          alert(`Pagamento recusado (${data.card.status ?? 'erro desconhecido'}). Verifique os dados do cartão e tente novamente.`)
+          alert(`Pagamento recusado (${data.card.statusDetail ?? data.card.status ?? 'erro'}). Verifique os dados e tente novamente.`)
         }
       }
-    } catch {
+    } catch (err) {
+      console.error(err)
       alert('Erro ao processar pagamento. Tente novamente.')
     }
     setProcessingPayment(false)
