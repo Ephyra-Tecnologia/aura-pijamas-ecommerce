@@ -47,6 +47,13 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
   const { id } = await params
-  await prisma.product.delete({ where: { id } })
-  return NextResponse.json({ ok: true })
+  try {
+    await prisma.product.delete({ where: { id } })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    if (e?.code === 'P2003' || e?.code === 'P2014') {
+      return NextResponse.json({ error: 'Este produto possui pedidos vinculados e não pode ser excluído. Desative-o em vez de excluir.' }, { status: 409 })
+    }
+    return NextResponse.json({ error: 'Erro ao excluir produto' }, { status: 500 })
+  }
 }

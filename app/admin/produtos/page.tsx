@@ -28,7 +28,12 @@ export default function AdminProdutos() {
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Excluir "${name}"? Esta ação não pode ser desfeita.`)) return
-    await fetch(`/api/produtos/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/produtos/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json()
+      alert(data.error ?? 'Erro ao excluir produto.')
+      return
+    }
     setProducts(prev => prev.filter(p => p.id !== id))
   }
 
