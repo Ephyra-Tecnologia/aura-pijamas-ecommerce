@@ -112,6 +112,7 @@ export default function CheckoutPage() {
   const [processingPayment, setProcessingPayment] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [cardForm, setCardForm] = useState({ number: '', holderName: '', expiry: '', cvv: '', installments: 1 })
+  const [mpInstance, setMpInstance] = useState<any>(null)
 
   const setCardField = (key: keyof typeof cardForm, value: string | number) =>
     setCardForm(f => ({ ...f, [key]: value }))
@@ -120,6 +121,13 @@ export default function CheckoutPage() {
     const script = document.createElement('script')
     script.src = 'https://sdk.mercadopago.com/js/v2'
     script.async = true
+    script.onload = () => {
+      const publicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY
+      if (window.MercadoPago && publicKey) {
+        const mp = new window.MercadoPago(publicKey, { locale: 'pt-BR' })
+        setMpInstance(mp)
+      }
+    }
     document.body.appendChild(script)
     return () => { document.body.removeChild(script) }
   }, [])
@@ -175,16 +183,15 @@ export default function CheckoutPage() {
       let paymentMethodId: string | undefined
 
       if (paymentMethod === 'credit_card') {
-        if (!window.MercadoPago) {
+        if (!mpInstance) {
           alert('SDK do Mercado Pago ainda está carregando. Aguarde um momento e tente novamente.')
           setProcessingPayment(false)
           return
         }
-        const mp = new window.MercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY)
         const [expMonth, expYear] = cardForm.expiry.split('/')
         const twoDigitYear = expYear?.length === 4 ? expYear.slice(2) : expYear
 
-        const tokenResponse = await mp.createCardToken({
+        const tokenResponse = await mpInstance.createCardToken({
           cardNumber: cardForm.number.replace(/\s/g, ''),
           cardholderName: cardForm.holderName,
           cardExpirationMonth: String(parseInt(expMonth)).padStart(2, '0'),
