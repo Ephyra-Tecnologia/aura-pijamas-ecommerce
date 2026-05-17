@@ -27,7 +27,7 @@ export async function criarPedidoPagarme(data: {
         payment_method: 'credit_card',
         credit_card: {
           installments: data.cardData.installments,
-          statement_descriptor: 'AURA PIJAMAS',
+          statement_descriptor: 'AURAPIJAMAS',
           card: {
             number: data.cardData.number.replace(/\s/g, ''),
             holder_name: data.cardData.holder_name,
@@ -63,7 +63,7 @@ export async function criarPedidoPagarme(data: {
         amount: item.amount,
         description: item.name,
         quantity: item.quantity,
-        code: item.name.toLowerCase().replace(/\s/g, '-'),
+        code: item.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9-]/g, '-').slice(0, 52),
       })),
       shipping: {
         amount: data.shipping.amount,
