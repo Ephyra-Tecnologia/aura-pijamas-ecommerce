@@ -181,6 +181,12 @@ export default function CheckoutPage() {
         })
       })
       const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.error ?? 'Erro ao processar pagamento. Tente novamente.')
+        return
+      }
+
       setOrderId(data.orderId)
       if (data.pix) {
         setPixData(data.pix)
@@ -189,7 +195,7 @@ export default function CheckoutPage() {
         if (approvedStatuses.includes(data.card.status)) {
           setCardPaid(true)
         } else {
-          alert(`Pagamento recusado (${data.card.status ?? 'erro'}). Verifique os dados do cartão e tente novamente.`)
+          alert(`Pagamento recusado (${data.card.status ?? 'erro desconhecido'}). Verifique os dados do cartão e tente novamente.`)
         }
       }
     } catch {
