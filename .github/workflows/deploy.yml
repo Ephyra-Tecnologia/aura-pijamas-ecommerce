@@ -16,6 +16,17 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Criar .env.local e copiar para VM
+        env:
+          MP_ACCESS_TOKEN: ${{ secrets.MP_ACCESS_TOKEN }}
+          NEXT_PUBLIC_MP_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_MP_PUBLIC_KEY }}
+        run: |
+          echo "MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN}" > .env.local
+          echo "NEXT_PUBLIC_MP_PUBLIC_KEY=${NEXT_PUBLIC_MP_PUBLIC_KEY}" >> .env.local
+          gcloud compute scp .env.local root@srv-qa-cvlt:/root/aura-pijamas-ecommerce/.env.local \
+            --zone=southamerica-east1-a \
+            --tunnel-through-iap
+
       - name: Deploy via IAP tunnel
         run: |
           gcloud compute ssh root@srv-qa-cvlt \
