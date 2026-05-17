@@ -20,9 +20,11 @@ jobs:
         env:
           MP_ACCESS_TOKEN: ${{ secrets.MP_ACCESS_TOKEN }}
           NEXT_PUBLIC_MP_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_MP_PUBLIC_KEY }}
+          MP_WEBHOOK_SECRET: ${{ secrets.MP_WEBHOOK_SECRET }}
         run: |
           echo "MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN}" > .env.local
           echo "NEXT_PUBLIC_MP_PUBLIC_KEY=${NEXT_PUBLIC_MP_PUBLIC_KEY}" >> .env.local
+          echo "MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}" >> .env.local
           gcloud compute scp .env.local root@srv-qa-cvlt:/root/aura-pijamas-ecommerce/.env.local \
             --zone=southamerica-east1-a \
             --tunnel-through-iap
