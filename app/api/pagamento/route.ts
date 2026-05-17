@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (mpPayment.error || mpPayment.status === 'rejected') {
-      const detail = mpPayment.message ?? mpPayment.cause?.[0]?.description ?? 'Pagamento recusado'
-      return NextResponse.json({ error: detail }, { status: 400 })
+      const detail = mpPayment.status_detail ?? mpPayment.cause?.[0]?.description ?? mpPayment.message ?? 'Pagamento recusado'
+      return NextResponse.json({ error: detail, statusDetail: mpPayment.status_detail, cause: mpPayment.cause }, { status: 400 })
     }
 
     const order = await prisma.order.create({

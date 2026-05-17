@@ -182,13 +182,13 @@ export default function CheckoutPage() {
         }
         const mp = new window.MercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY)
         const [expMonth, expYear] = cardForm.expiry.split('/')
-        const fullYear = parseInt(expYear) < 100 ? 2000 + parseInt(expYear) : parseInt(expYear)
+        const twoDigitYear = expYear?.length === 4 ? expYear.slice(2) : expYear
 
         const tokenResponse = await mp.createCardToken({
           cardNumber: cardForm.number.replace(/\s/g, ''),
           cardholderName: cardForm.holderName,
           cardExpirationMonth: String(parseInt(expMonth)).padStart(2, '0'),
-          cardExpirationYear: String(fullYear),
+          cardExpirationYear: twoDigitYear,
           securityCode: cardForm.cvv,
           identificationType: 'CPF',
           identificationNumber: documento.replace(/\D/g, ''),
@@ -222,7 +222,8 @@ export default function CheckoutPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        alert(data.error ?? 'Erro ao processar pagamento. Tente novamente.')
+        const detail = data.statusDetail ? `\n\nCódigo: ${data.statusDetail}` : ''
+        alert((data.error ?? 'Erro ao processar pagamento. Tente novamente.') + detail)
         return
       }
 
