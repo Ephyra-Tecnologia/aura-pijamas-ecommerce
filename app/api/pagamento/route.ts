@@ -27,7 +27,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (pagarmeOrder.status === 'failed') {
-      return NextResponse.json({ error: 'Pedido recusado pelo Pagar.me' }, { status: 400 })
+      const failedCharge = pagarmeOrder.charges?.[0]
+      const failedTx = failedCharge?.last_transaction
+      const detail = failedTx?.acquirer_message ?? failedTx?.gateway_response?.errors?.[0]?.message ?? failedCharge?.status ?? 'recusado'
+      console.error('Pagar.me charge failed:', JSON.stringify(failedTx, null, 2))
+      return NextResponse.json({ error: `Pagamento recusado: ${detail}` }, { status: 400 })
     }
 
     // Salva o pedido no banco
