@@ -144,15 +144,12 @@ export function Footer() {
         </div>
         <div className="footer-col">
           <h4>Informações</h4>
-          <Link href="/sobre">Sobre nós</Link>
-          <Link href="#">Guia de tamanhos</Link>
+          <Link href="/a-aura">Sobre nós</Link>
           <Link href="#">Cuidados com as peças</Link>
         </div>
         <div className="footer-col">
           <h4>Ajuda</h4>
           <Link href="/trocas-devolucoes">Trocas e devoluções</Link>
-          <Link href="#">Rastrear pedido</Link>
-          <Link href="#">FAQ</Link>
           <Link href="#">Contato</Link>
         </div>
       </div>
