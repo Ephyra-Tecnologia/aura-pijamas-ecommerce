@@ -1,29 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { buscarPagamento } from '@/lib/mercadopago'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    console.log('WEBHOOK PAGARME:', JSON.stringify(body, null, 2))
+    console.log('MP WEBHOOK:', JSON.stringify(body, null, 2))
 
-    const { type, data } = body
+    const { type, action, data } = body
 
-    if (type === 'order.paid' || type === 'charge.paid') {
-      const pagarmeId = data.order?.id || data.id
-      if (pagarmeId) {
+    // Mercado Pago envia action "payment.updated" ou type "payment"
+    if ((action === 'payment.updated' || type === 'payment') && data?.id) {
+      const payment = await buscarPagamento(String(data.id))
+      console.log('MP PAYMENT STATUS:', payment.status, payment.id)
+
+      if (payment.status === 'approved') {
         await prisma.order.updateMany({
-          where: { pagarmeId },
+          where: { pagarmeId: String(data.id) },
           data: { status: 'PAID' }
         })
-        console.log('Pedido marcado como PAGO:', pagarmeId)
-      }
-    }
-
-    if (type === 'order.canceled') {
-      const pagarmeId = data.id
-      if (pagarmeId) {
+      } else if (payment.status === 'cancelled' || payment.status === 'refunded') {
         await prisma.order.updateMany({
-          where: { pagarmeId },
+          where: { pagarmeId: String(data.id) },
           data: { status: 'CANCELLED' }
         })
       }
@@ -31,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error('Erro no webhook:', error)
+    console.error('Erro no webhook MP:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
