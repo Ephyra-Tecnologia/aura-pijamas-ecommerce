@@ -39,14 +39,18 @@ export async function POST(req: NextRequest) {
       const payment = await buscarPagamento(String(data.id))
       console.log('MP PAYMENT STATUS:', payment.status, payment.id)
 
+      const whereClause = payment.external_reference
+        ? { OR: [{ pagarmeId: String(data.id) }, { id: payment.external_reference }] }
+        : { pagarmeId: String(data.id) }
+
       if (payment.status === 'approved') {
         await prisma.order.updateMany({
-          where: { pagarmeId: String(data.id) },
-          data: { status: 'PAID' }
+          where: whereClause,
+          data: { status: 'PAID', pagarmeId: String(data.id) }
         })
       } else if (payment.status === 'cancelled' || payment.status === 'refunded') {
         await prisma.order.updateMany({
-          where: { pagarmeId: String(data.id) },
+          where: whereClause,
           data: { status: 'CANCELLED' }
         })
       }
