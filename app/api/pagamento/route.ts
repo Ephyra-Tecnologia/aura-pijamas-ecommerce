@@ -89,7 +89,11 @@ export async function POST(req: NextRequest) {
       : null
 
     const cardStatus = paymentMethod === 'credit_card'
-      ? { status: mpPayment.status, statusDetail: mpPayment.status_detail }
+      ? {
+          status: mpPayment.status,
+          statusDetail: mpPayment.status_detail,
+          threeDsUrl: mpPayment.three_ds_info?.external_resource_url ?? null,
+        }
       : null
 
     return NextResponse.json({

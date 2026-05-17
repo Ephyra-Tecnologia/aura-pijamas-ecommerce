@@ -241,6 +241,8 @@ export default function CheckoutPage() {
       } else if (data.card) {
         if (data.card.status === 'approved') {
           setCardPaid(true)
+        } else if (data.card.threeDsUrl) {
+          window.location.href = data.card.threeDsUrl
         } else if (data.card.status === 'in_process' || data.card.status === 'pending') {
           setCardPending(true)
         } else {
