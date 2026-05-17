@@ -75,6 +75,8 @@ export async function criarPedidoPagarme(data: {
       shipping: {
         amount: data.shipping.amount,
         description: 'Entrega',
+        recipient_name: data.name,
+        recipient_phone: data.phone.replace(/\D/g, ''),
         address: data.shipping.address,
       },
       payments: [payment]
