@@ -202,10 +202,10 @@ nav a:hover { opacity: 1; }
   padding: 80px 6vw 40px;
 }
 .section-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 42px;
-  font-weight: 300;
-  letter-spacing: 0.02em;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 .section-title em { font-style: italic; color: var(--earth); }
 .view-all {

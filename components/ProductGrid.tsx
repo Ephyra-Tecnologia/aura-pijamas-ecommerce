@@ -31,7 +31,7 @@ export default function ProductGrid() {
   if (loading) return (
     <section id="colecao">
       <div className="section-header">
-        <h2 className="section-title"><em>Lançamentos</em></h2>
+        <h2 className="section-title">Lançamentos</h2>
       </div>
       <div style={{ padding: '0 6vw 80px', color: 'var(--stone)', fontSize: 14 }}>
         Carregando produtos...
@@ -42,11 +42,11 @@ export default function ProductGrid() {
   return (
     <section id="colecao">
       <div className="section-header">
-        <h2 className="section-title"><em>Lançamentos</em></h2>
+        <h2 className="section-title">Lançamentos</h2>
         <Link href="/colecoes" className="view-all">Ver todos</Link>
       </div>
       <div className="products-grid">
-        {products.filter(p => p.active !== false).map(p => (
+        {products.filter(p => p.active !== false).slice(0, 16).map(p => (
           <div key={p.id} className="product-card" onClick={() => openModal(p)}>
             <div className="product-img-wrap">
               {p.images?.[0] ? (
