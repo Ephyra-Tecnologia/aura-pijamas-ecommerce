@@ -109,6 +109,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
   const [pixData, setPixData] = useState<{ qrCode: string; qrCodeUrl: string } | null>(null)
   const [cardPaid, setCardPaid] = useState(false)
+  const [cardPending, setCardPending] = useState(false)
   const [processingPayment, setProcessingPayment] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [cardForm, setCardForm] = useState({ number: '', holderName: '', expiry: '', cvv: '', installments: 1 })
@@ -240,6 +241,8 @@ export default function CheckoutPage() {
       } else if (data.card) {
         if (data.card.status === 'approved') {
           setCardPaid(true)
+        } else if (data.card.status === 'in_process' || data.card.status === 'pending') {
+          setCardPending(true)
         } else {
           alert(`Pagamento recusado (${data.card.statusDetail ?? data.card.status ?? 'erro'}). Verifique os dados e tente novamente.`)
         }
@@ -361,7 +364,7 @@ export default function CheckoutPage() {
           )}
 
           {/* Step 3 */}
-          {step === 3 && !pixData && !cardPaid && (
+          {step === 3 && !pixData && !cardPaid && !cardPending && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>Pagamento</h2>
               <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
@@ -472,6 +475,21 @@ export default function CheckoutPage() {
               qrCodeUrl={pixData.qrCodeUrl}
               orderId={orderId}
             />
+          )}
+
+          {/* Cartão em revisão */}
+          {cardPending && orderId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: 64 }}>⏳</div>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, color: 'var(--dark)' }}>Pedido recebido!</h2>
+              <p style={{ fontSize: 14, color: 'var(--stone)', maxWidth: 400, lineHeight: 1.7 }}>
+                Seu pedido foi registrado com sucesso. O pagamento está sendo processado e você receberá uma confirmação por e-mail assim que aprovado.
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--earth)' }}>Pedido #{orderId.slice(-8).toUpperCase()}</p>
+              <a href="/" style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '14px 32px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', textDecoration: 'none', marginTop: 8 }}>
+                Voltar para a loja
+              </a>
+            </div>
           )}
 
           {/* Cartão confirmado */}
