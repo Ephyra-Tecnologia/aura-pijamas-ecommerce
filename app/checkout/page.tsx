@@ -1,8 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useCartStore } from '@/store/cart'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { getStripeClient } from '@/lib/stripe-client'
 
 interface FreteOption { name: string; price: number; days: number }
 interface FormData {
@@ -12,11 +14,13 @@ interface FormData {
 }
 
 const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
+const SEM_JUROS = 3
+const MAX_PARCELAS = 12
 
-// ── Campo de formulário reutilizável ─────────────────────────────────────────
-function Field({ label, value, onChange, type = 'text', placeholder = '', maxLength }: {
+// ── Campo reutilizável ──────────────────────────────────────────────────────
+function Field({ label, value, onChange, type = 'text', placeholder = '', maxLength, inputMode }: {
   label: string; value: string; onChange: (v: string) => void
-  type?: string; placeholder?: string; maxLength?: number
+  type?: string; placeholder?: string; maxLength?: number; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
 }) {
   return (
     <div className="checkout-field" style={{ gap: 0 }}>
@@ -28,13 +32,14 @@ function Field({ label, value, onChange, type = 'text', placeholder = '', maxLen
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
+        inputMode={inputMode}
         autoComplete="on"
       />
     </div>
   )
 }
 
-// ── Resumo do pedido (componente compartilhado) ──────────────────────────────
+// ── Resumo do pedido ────────────────────────────────────────────────────────
 function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
   items: any[]; totalItems: () => number; selectedFrete: FreteOption | null; totalFinal: number
 }) {
@@ -66,6 +71,199 @@ function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
         </div>
       </div>
     </>
+  )
+}
+
+// ── Seletor de parcelas ─────────────────────────────────────────────────────
+function InstallmentSelector({ totalFinal, parcelas, setParcelas }: {
+  totalFinal: number; parcelas: number; setParcelas: (n: number) => void
+}) {
+  const minParcela = 10
+  const maxParcelas = Math.min(MAX_PARCELAS, Math.floor(totalFinal / minParcela))
+  const options = Array.from({ length: Math.max(maxParcelas, 1) }, (_, i) => i + 1)
+
+  return (
+    <div>
+      <p style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 12 }}>
+        Parcelamento
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+        {options.map(n => {
+          const semJuros = n <= SEM_JUROS
+          const ativo = parcelas === n
+          return (
+            <div
+              key={n}
+              onClick={() => setParcelas(n)}
+              style={{
+                border: `1px solid ${ativo ? 'var(--dark)' : 'var(--sand)'}`,
+                background: ativo ? 'var(--dark)' : 'white',
+                padding: '10px 6px',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ fontSize: 14, fontFamily: 'var(--font-serif)', color: ativo ? 'var(--cream)' : 'var(--dark)', marginBottom: 2 }}>
+                {n}x
+              </div>
+              <div style={{ fontSize: 10, color: ativo ? 'var(--sand)' : 'var(--earth)' }}>
+                {fmt(totalFinal / n)}
+              </div>
+              <div style={{ fontSize: 9, color: ativo ? '#C4B5A5' : semJuros ? '#16a34a' : 'var(--stone)', marginTop: 2, letterSpacing: '0.04em' }}>
+                {semJuros ? 'sem juros' : 'c/ juros'}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ padding: '12px 14px', background: 'var(--cream)', border: '1px solid var(--sand)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ color: 'var(--dark)', fontFamily: 'var(--font-serif)' }}>
+          {parcelas}x de {fmt(totalFinal / parcelas)}
+        </span>
+        <span style={{ color: parcelas <= SEM_JUROS ? '#16a34a' : 'var(--stone)', fontSize: 11 }}>
+          {parcelas <= SEM_JUROS ? '✓ sem juros' : 'juros do cartão'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ── Formulário de cartão (dentro do Elements) ────────────────────────────────
+function CardForm({ totalFinal, parcelas, setParcelas, form, selectedFrete, documento, items, onBack }: {
+  totalFinal: number; parcelas: number; setParcelas: (n: number) => void
+  form: FormData; selectedFrete: FreteOption | null; documento: string
+  items: any[]; onBack: () => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [loading, setLoading] = useState(false)
+  const [cardError, setCardError] = useState<string | null>(null)
+
+  const handlePay = async () => {
+    if (!stripe || !elements) return
+    setLoading(true)
+    setCardError(null)
+
+    // 1. Valida o formulário do Payment Element
+    const { error: submitError } = await elements.submit()
+    if (submitError) {
+      setCardError(submitError.message ?? 'Verifique os dados do cartão')
+      setLoading(false)
+      return
+    }
+
+    // 2. Cria o PaymentIntent no servidor
+    try {
+      const res = await fetch('/api/pagamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: { name: form.name, email: form.email, phone: form.phone, document: documento },
+          shipping: {
+            method: selectedFrete?.name,
+            price: selectedFrete?.price || 0,
+            address: {
+              line_1: `${form.address}, ${form.number}`,
+              zip_code: form.zipCode.replace(/\D/g, ''),
+              city: form.city,
+              state: form.state,
+              country: 'BR',
+            },
+          },
+          cartItems: items,
+          total: totalFinal,
+          paymentMethod: 'credit_card',
+          parcelas,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.clientSecret) {
+        setCardError(data.error ?? 'Erro ao iniciar pagamento')
+        setLoading(false)
+        return
+      }
+
+      // 3. Confirma o pagamento com o Payment Element
+      const { error: confirmError } = await stripe.confirmPayment({
+        elements,
+        clientSecret: data.clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/checkout/sucesso`,
+          payment_method_data: {
+            billing_details: {
+              name: form.name,
+              email: form.email,
+            },
+          },
+        },
+        redirect: 'if_required',
+      })
+
+      if (confirmError) {
+        setCardError(confirmError.message ?? 'Pagamento recusado. Verifique os dados ou tente outro cartão.')
+        setLoading(false)
+        return
+      }
+
+      // Sem redirect (sem 3DS) — navega para sucesso
+      window.location.href = `/checkout/sucesso?payment_intent=${data.paymentIntentId}`
+
+    } catch {
+      setCardError('Erro de conexão. Tente novamente.')
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <InstallmentSelector totalFinal={totalFinal} parcelas={parcelas} setParcelas={setParcelas} />
+
+      {/* Stripe Payment Element */}
+      <div>
+        <p style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 12 }}>
+          Dados do cartão
+        </p>
+        <div style={{ border: '1px solid var(--sand)', padding: '16px', background: 'white' }}>
+          <PaymentElement
+            options={{
+              layout: 'tabs',
+              fields: { billingDetails: { name: 'never', email: 'never' } },
+            }}
+          />
+        </div>
+      </div>
+
+      {cardError && (
+        <div style={{ background: '#fee2e2', border: '1px solid #fecaca', padding: '12px 16px', fontSize: 13, color: '#dc2626', lineHeight: 1.5 }}>
+          {cardError}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button className="checkout-btn-secondary" onClick={onBack} disabled={loading}>
+          Voltar
+        </button>
+        <button
+          className="checkout-btn-primary"
+          style={{ flex: 2, opacity: loading || !stripe ? 0.7 : 1, cursor: loading || !stripe ? 'not-allowed' : 'pointer' }}
+          onClick={handlePay}
+          disabled={loading || !stripe}
+        >
+          {loading
+            ? 'Processando...'
+            : parcelas > 1
+            ? `Pagar · ${parcelas}x de ${fmt(totalFinal / parcelas)}`
+            : `Pagar · ${fmt(totalFinal)}`}
+        </button>
+      </div>
+
+      <p style={{ fontSize: 11, color: 'var(--stone)', textAlign: 'center', lineHeight: 1.6 }}>
+        🔒 Pagamento seguro via Stripe · Visa, Mastercard, Elo, Amex
+      </p>
+    </div>
   )
 }
 
@@ -133,7 +331,7 @@ export default function CheckoutPage() {
   const [documento, setDocumento] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
   const [pixData, setPixData] = useState<{ qrCode: string; qrCodeUrl: string } | null>(null)
-  const [processingPayment, setProcessingPayment] = useState(false)
+  const [processingPix, setProcessingPix] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [parcelas, setParcelas] = useState(1)
@@ -171,8 +369,8 @@ export default function CheckoutPage() {
 
   const totalFinal = total() + (selectedFrete?.price || 0)
 
-  const handlePayment = async () => {
-    setProcessingPayment(true)
+  const handlePixPayment = async () => {
+    setProcessingPix(true)
     try {
       const res = await fetch('/api/pagamento', {
         method: 'POST',
@@ -186,17 +384,16 @@ export default function CheckoutPage() {
           },
           cartItems: items,
           total: totalFinal,
-          paymentMethod,
-          parcelas: paymentMethod === 'credit_card' ? parcelas : 1,
+          paymentMethod: 'pix',
+          parcelas: 1,
         }),
       })
       const data = await res.json()
-      if (!res.ok) { alert(data.error ?? 'Erro ao processar pagamento.'); return }
-      if (data.checkoutUrl) { window.location.href = data.checkoutUrl; return }
+      if (!res.ok) { alert(data.error ?? 'Erro ao gerar Pix.'); return }
       setOrderId(data.orderId)
       if (data.pix) setPixData(data.pix)
-    } catch { alert('Erro ao processar pagamento. Tente novamente.') }
-    setProcessingPayment(false)
+    } catch { alert('Erro ao gerar Pix. Tente novamente.') }
+    setProcessingPix(false)
   }
 
   if (items.length === 0) return (
@@ -210,15 +407,40 @@ export default function CheckoutPage() {
 
   const cardStyle = { background: 'white', border: '1px solid var(--sand)', padding: '20px' }
 
+  // Elements options para o Payment Element (deferred intent)
+  const elementsOptions = {
+    mode: 'payment' as const,
+    amount: Math.max(Math.round(totalFinal * 100), 50),
+    currency: 'brl',
+    locale: 'pt-BR' as const,
+    appearance: {
+      theme: 'stripe' as const,
+      variables: {
+        colorPrimary: '#1C1410',
+        colorBackground: '#FFFFFF',
+        colorText: '#1C1410',
+        colorDanger: '#dc2626',
+        fontFamily: '"Jost", sans-serif',
+        borderRadius: '0px',
+        spacingUnit: '4px',
+      },
+      rules: {
+        '.Input': { border: '1px solid #E8DDD0', boxShadow: 'none', padding: '12px' },
+        '.Input:focus': { border: '1px solid #1C1410', boxShadow: 'none' },
+        '.Label': { fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#C4B5A5' },
+      },
+    },
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', fontFamily: 'var(--font-sans)' }}>
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div style={{ borderBottom: '1px solid var(--sand)', padding: '16px 6vw', display: 'flex', justifyContent: 'center' }}>
         <Link href="/"><Image src="/assets/aura-header.png" alt="Aura Pijamas" height={36} width={120} style={{ objectFit: 'contain', mixBlendMode: 'multiply' }} /></Link>
       </div>
 
-      {/* ── Resumo mobile (toggle no topo) ─────────────────────────────── */}
+      {/* Resumo mobile */}
       <div className="checkout-summary-mobile">
         <button
           onClick={() => setSummaryOpen(o => !o)}
@@ -236,10 +458,10 @@ export default function CheckoutPage() {
         )}
       </div>
 
-      {/* ── Layout principal ───────────────────────────────────────────── */}
+      {/* Layout */}
       <div className="checkout-layout">
 
-        {/* ── Coluna esquerda: formulário ─────────────────────────────── */}
+        {/* Coluna esquerda */}
         <div style={{ padding: 'clamp(20px, 5vw, 0px)' }}>
 
           {/* Steps */}
@@ -255,38 +477,26 @@ export default function CheckoutPage() {
             ))}
           </div>
 
-          {/* ── Step 1: Dados ──────────────────────────────────────────── */}
+          {/* Step 1 */}
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Seus dados</h2>
-              <Field label="Nome completo" value={form.name} onChange={v => setField('name', v)} type="text" />
+              <Field label="Nome completo" value={form.name} onChange={v => setField('name', v)} />
               <Field label="E-mail" value={form.email} onChange={v => setField('email', v)} type="email" />
               <Field label="Telefone / WhatsApp" value={form.phone} onChange={v => setField('phone', v)} type="tel" />
-              <button
-                className="checkout-btn-primary"
-                onClick={() => { if (form.name && form.email && form.phone) setStep(2) }}
-                style={{ marginTop: 8 }}
-              >
+              <button className="checkout-btn-primary" onClick={() => { if (form.name && form.email && form.phone) setStep(2) }} style={{ marginTop: 8 }}>
                 Continuar
               </button>
             </div>
           )}
 
-          {/* ── Step 2: Endereço ───────────────────────────────────────── */}
+          {/* Step 2 */}
           {step === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Endereço de entrega</h2>
               <div className="checkout-field">
                 <label className="checkout-label">CEP {loadingCep && <span style={{ color: 'var(--stone)', fontStyle: 'italic' }}>buscando...</span>}</label>
-                <input
-                  className="checkout-input"
-                  type="text"
-                  value={form.zipCode}
-                  onChange={e => { setField('zipCode', e.target.value); buscarCep(e.target.value) }}
-                  maxLength={9}
-                  placeholder="00000-000"
-                  inputMode="numeric"
-                />
+                <input className="checkout-input" type="text" value={form.zipCode} onChange={e => { setField('zipCode', e.target.value); buscarCep(e.target.value) }} maxLength={9} placeholder="00000-000" inputMode="numeric" />
               </div>
               <Field label="Endereço" value={form.address} onChange={v => setField('address', v)} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 12 }}>
@@ -297,13 +507,9 @@ export default function CheckoutPage() {
               <Field label="Bairro" value={form.neighborhood} onChange={v => setField('neighborhood', v)} />
               <Field label="Cidade" value={form.city} onChange={v => setField('city', v)} />
 
-              {/* Frete */}
               <div style={{ borderTop: '1px solid var(--sand)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <button
-                  onClick={calcularFrete}
-                  disabled={!form.zipCode || loadingFrete}
-                  style={{ background: 'transparent', border: '1px solid var(--dark)', color: 'var(--dark)', padding: '13px 20px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', opacity: !form.zipCode ? 0.5 : 1, borderRadius: 0, WebkitAppearance: 'none' }}
-                >
+                <button onClick={calcularFrete} disabled={!form.zipCode || loadingFrete}
+                  style={{ background: 'transparent', border: '1px solid var(--dark)', color: 'var(--dark)', padding: '13px 20px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', opacity: !form.zipCode ? 0.5 : 1, borderRadius: 0, WebkitAppearance: 'none' }}>
                   {loadingFrete ? 'Calculando...' : 'Calcular frete'}
                 </button>
                 {freteOptions.map((f, i) => (
@@ -312,25 +518,21 @@ export default function CheckoutPage() {
                       <div style={{ fontSize: 13, color: 'var(--dark)' }}>{f.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--stone)', marginTop: 2 }}>{f.days === 0 ? 'A combinar' : `até ${f.days} dias úteis`}</div>
                     </div>
-                    <div style={{ fontSize: 14, color: 'var(--earth)', fontWeight: 400 }}>{f.price === 0 ? 'Grátis' : fmt(f.price)}</div>
+                    <div style={{ fontSize: 14, color: 'var(--earth)' }}>{f.price === 0 ? 'Grátis' : fmt(f.price)}</div>
                   </div>
                 ))}
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
                 <button className="checkout-btn-secondary" onClick={() => setStep(1)}>Voltar</button>
-                <button
-                  className="checkout-btn-primary"
-                  style={{ flex: 2 }}
-                  onClick={() => { if (form.address && form.city && selectedFrete) setStep(3) }}
-                >
+                <button className="checkout-btn-primary" style={{ flex: 2 }} onClick={() => { if (form.address && form.city && selectedFrete) setStep(3) }}>
                   Continuar
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── Step 3: Pagamento ──────────────────────────────────────── */}
+          {/* Step 3 */}
           {step === 3 && !pixData && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Pagamento</h2>
@@ -346,119 +548,71 @@ export default function CheckoutPage() {
                   {selectedFrete?.name} · {selectedFrete?.price === 0 ? 'Grátis' : fmt(selectedFrete?.price || 0)}
                   {selectedFrete?.days ? ` · até ${selectedFrete.days} dias úteis` : ''}
                 </p>
-                <button onClick={() => setStep(2)} style={{ marginTop: 12, background: 'none', border: 'none', fontSize: 11, color: 'var(--stone)', cursor: 'pointer', padding: 0, textDecoration: 'underline', letterSpacing: '0.05em' }}>
+                <button onClick={() => setStep(2)} style={{ marginTop: 12, background: 'none', border: 'none', fontSize: 11, color: 'var(--stone)', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                   Alterar
                 </button>
               </div>
 
-              {/* CPF */}
-              <div style={cardStyle}>
-                <label className="checkout-label">CPF <span style={{ fontSize: 9, color: 'var(--stone)', textTransform: 'none', letterSpacing: 0 }}>(obrigatório para Pix)</span></label>
-                <input
-                  className="checkout-input"
-                  type="text"
-                  placeholder="000.000.000-00"
-                  value={documento}
-                  onChange={e => setDocumento(e.target.value)}
-                  maxLength={14}
-                  inputMode="numeric"
-                  style={{ border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', background: 'transparent' }}
-                />
-              </div>
-
-              {/* Forma de pagamento */}
+              {/* Seletor de método */}
               <div style={cardStyle}>
                 <p style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 14 }}>Forma de pagamento</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {(['pix', 'credit_card'] as const).map(method => (
-                    <div
-                      key={method}
-                      onClick={() => setPaymentMethod(method)}
-                      style={{ border: `1px solid ${paymentMethod === method ? 'var(--dark)' : 'var(--sand)'}`, padding: '16px 12px', cursor: 'pointer', textAlign: 'center', background: paymentMethod === method ? 'var(--sand)' : 'white' }}
-                    >
+                    <div key={method} onClick={() => setPaymentMethod(method)}
+                      style={{ border: `1px solid ${paymentMethod === method ? 'var(--dark)' : 'var(--sand)'}`, padding: '16px 12px', cursor: 'pointer', textAlign: 'center', background: paymentMethod === method ? 'var(--sand)' : 'white' }}>
                       <div style={{ fontSize: 22, marginBottom: 6 }}>{method === 'pix' ? '⚡' : '💳'}</div>
                       <div style={{ fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dark)' }}>{method === 'pix' ? 'Pix' : 'Cartão'}</div>
-                      <div style={{ fontSize: 10, color: 'var(--earth)', marginTop: 3 }}>{method === 'pix' ? 'Aprovação imediata' : 'Via Stripe'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--earth)', marginTop: 3 }}>{method === 'pix' ? 'Aprovação imediata' : 'Até 12x'}</div>
                     </div>
                   ))}
                 </div>
-                {paymentMethod === 'credit_card' && (() => {
-                  const SEM_JUROS = 3 // até 3x sem juros
-                  const MAX = 12
-                  const minParcela = 10
-                  const maxParcelas = Math.min(MAX, Math.floor(totalFinal / minParcela))
-                  const options = Array.from({ length: Math.max(maxParcelas, 1) }, (_, i) => i + 1)
-                  const valorParcela = totalFinal / parcelas
-
-                  return (
-                    <div style={{ marginTop: 18 }}>
-                      <p style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 12 }}>
-                        Parcelamento
-                      </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                        {options.map(n => {
-                          const val = totalFinal / n
-                          const semJuros = n <= SEM_JUROS
-                          const ativo = parcelas === n
-                          return (
-                            <div
-                              key={n}
-                              onClick={() => setParcelas(n)}
-                              style={{
-                                border: `1px solid ${ativo ? 'var(--dark)' : 'var(--sand)'}`,
-                                background: ativo ? 'var(--dark)' : 'white',
-                                padding: '10px 6px',
-                                cursor: 'pointer',
-                                textAlign: 'center',
-                              }}
-                            >
-                              <div style={{ fontSize: 13, fontFamily: 'var(--font-serif)', color: ativo ? 'var(--cream)' : 'var(--dark)', marginBottom: 2 }}>
-                                {n}x
-                              </div>
-                              <div style={{ fontSize: 10, color: ativo ? 'var(--sand)' : 'var(--earth)' }}>
-                                {fmt(val)}
-                              </div>
-                              <div style={{ fontSize: 9, color: ativo ? '#C4B5A5' : semJuros ? '#16a34a' : 'var(--stone)', marginTop: 2 }}>
-                                {semJuros ? 'sem juros' : 'c/ juros'}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--cream)', border: '1px solid var(--sand)', fontSize: 13 }}>
-                        <span style={{ color: 'var(--dark)', fontFamily: 'var(--font-serif)' }}>
-                          {parcelas}x de {fmt(valorParcela)}
-                        </span>
-                        {parcelas <= SEM_JUROS
-                          ? <span style={{ color: '#16a34a', fontSize: 11, marginLeft: 8 }}>sem juros</span>
-                          : <span style={{ color: 'var(--stone)', fontSize: 11, marginLeft: 8 }}>juros do cartão</span>
-                        }
-                      </div>
-                      <p style={{ fontSize: 11, color: 'var(--stone)', marginTop: 10, lineHeight: 1.6 }}>
-                        Você será redirecionado para o Stripe. Visa, Mastercard, Elo, Amex.
-                      </p>
-                    </div>
-                  )
-                })()}
               </div>
 
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="checkout-btn-secondary" onClick={() => setStep(2)}>Voltar</button>
-                <button
-                  className="checkout-btn-primary"
-                  style={{ flex: 2, opacity: processingPayment ? 0.7 : 1, cursor: processingPayment ? 'not-allowed' : 'pointer' }}
-                  onClick={handlePayment}
-                  disabled={processingPayment}
-                >
-                  {processingPayment
-                    ? 'Processando...'
-                    : paymentMethod === 'pix'
-                    ? `Gerar Pix · ${fmt(totalFinal)}`
-                    : parcelas > 1
-                    ? `Pagar · ${parcelas}x de ${fmt(totalFinal / parcelas)}`
-                    : `Pagar · ${fmt(totalFinal)}`}
-                </button>
-              </div>
+              {/* PIX */}
+              {paymentMethod === 'pix' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={cardStyle}>
+                    <label className="checkout-label">CPF <span style={{ fontSize: 9, color: 'var(--stone)', textTransform: 'none', letterSpacing: 0 }}>(obrigatório)</span></label>
+                    <input
+                      className="checkout-input"
+                      type="text"
+                      placeholder="000.000.000-00"
+                      value={documento}
+                      onChange={e => setDocumento(e.target.value)}
+                      maxLength={14}
+                      inputMode="numeric"
+                      style={{ border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', background: 'transparent' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button className="checkout-btn-secondary" onClick={() => setStep(2)}>Voltar</button>
+                    <button
+                      className="checkout-btn-primary"
+                      style={{ flex: 2, opacity: processingPix ? 0.7 : 1 }}
+                      onClick={handlePixPayment}
+                      disabled={processingPix}
+                    >
+                      {processingPix ? 'Gerando Pix...' : `Gerar Pix · ${fmt(totalFinal)}`}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* CARTÃO — checkout transparente */}
+              {paymentMethod === 'credit_card' && (
+                <Elements stripe={getStripeClient()} options={elementsOptions}>
+                  <CardForm
+                    totalFinal={totalFinal}
+                    parcelas={parcelas}
+                    setParcelas={setParcelas}
+                    form={form}
+                    selectedFrete={selectedFrete}
+                    documento={documento}
+                    items={items}
+                    onBack={() => setStep(2)}
+                  />
+                </Elements>
+              )}
             </div>
           )}
 
@@ -470,7 +624,7 @@ export default function CheckoutPage() {
           <div style={{ height: 48 }} />
         </div>
 
-        {/* ── Coluna direita: resumo (só desktop) ────────────────────── */}
+        {/* Resumo desktop */}
         <div className="checkout-summary-desktop">
           <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', position: 'sticky', top: 24 }}>
             <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 20 }}>Seu pedido</h3>

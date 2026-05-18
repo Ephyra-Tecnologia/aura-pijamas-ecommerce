@@ -6,9 +6,10 @@ import Image from 'next/image'
 
 function SucessoContent() {
   const params = useSearchParams()
-  // Stripe envia ?session_id=... após checkout de cartão
+  // Payment Intent (checkout transparente) ou Session ID (checkout hospedado legado)
+  const paymentIntent = params.get('payment_intent') ?? ''
   const sessionId = params.get('session_id') ?? ''
-  const shortId = sessionId ? sessionId.slice(-8).toUpperCase() : ''
+  const shortId = (paymentIntent || sessionId).slice(-8).toUpperCase()
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', fontFamily: 'var(--font-sans)' }}>

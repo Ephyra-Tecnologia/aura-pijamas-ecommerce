@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const { customer, cartItems, shipping, paymentMethod, total, parcelas = 1 } = body
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
 
-    // ─── Cartão de crédito via Stripe Checkout ───────────────────────────────
+    // ─── Cartão de crédito via Stripe Payment Intent (checkout transparente) ──
     if (paymentMethod === 'credit_card') {
       const stripe = getStripe()
 
@@ -35,43 +35,33 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      const lineItems: any[] = cartItems.map((item: any) => ({
-        price_data: {
-          currency: 'brl',
-          product_data: { name: item.name },
-          unit_amount: Math.round(item.price * 100),
-        },
-        quantity: item.qty,
-      }))
-
-      if (shipping.price > 0) {
-        lineItems.push({
-          price_data: {
-            currency: 'brl',
-            product_data: { name: shipping.method ?? 'Frete' },
-            unit_amount: Math.round(shipping.price * 100),
-          },
-          quantity: 1,
-        })
-      }
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        mode: 'payment',
-        customer_email: customer.email,
-        line_items: lineItems,
-        success_url: `${baseUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/checkout/cancelado`,
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(total * 100),
+        currency: 'brl',
+        receipt_email: customer.email,
         metadata: { orderId: order.id, parcelas: String(parcelas) },
-        payment_intent_data: { metadata: { orderId: order.id, parcelas: String(parcelas) } },
+        ...(parcelas > 1 && {
+          payment_method_options: {
+            card: {
+              installments: {
+                enabled: true,
+                plan: { count: parcelas, interval: 'month', type: 'fixed_count' },
+              },
+            },
+          },
+        }),
       })
 
       await prisma.order.update({
         where: { id: order.id },
-        data: { pagarmeId: session.id },
+        data: { pagarmeId: paymentIntent.id },
       })
 
-      return NextResponse.json({ checkoutUrl: session.url })
+      return NextResponse.json({
+        clientSecret: paymentIntent.client_secret,
+        orderId: order.id,
+        paymentIntentId: paymentIntent.id,
+      })
     }
 
     // ─── Pix via MercadoPago ──────────────────────────────────────────────────
