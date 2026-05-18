@@ -39,4 +39,4 @@ jobs:
           gcloud compute ssh root@srv-qa-cvlt \
             --zone=southamerica-east1-a \
             --tunnel-through-iap \
-            --command="source /root/.nvm/nvm.sh && cd /root/aura-pijamas-ecommerce && git stash && git pull --rebase && npm install && npx prisma generate && npm run build && pm2 restart aura-pijamas"
+            --command="source /root/.nvm/nvm.sh && cd /root/aura-pijamas-ecommerce && git stash && git pull --rebase && npm install && npx prisma generate && npx prisma db push --accept-data-loss && npm run build && pm2 restart aura-pijamas"

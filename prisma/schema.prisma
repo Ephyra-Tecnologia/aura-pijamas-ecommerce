@@ -25,6 +25,7 @@ model Product {
   images      String[]
   active      Boolean     @default(true)
   position    Int         @default(0)
+  deletedAt   DateTime?
   categories  Category[]
   orderItems  OrderItem[]
   createdAt   DateTime    @default(now())

@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const admin = req.nextUrl.searchParams.get('admin') === '1'
+
   const products = await prisma.product.findMany({
+    where: admin ? undefined : { deletedAt: null },
     include: { categories: true },
     orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
   })

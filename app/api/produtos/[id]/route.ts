@@ -18,6 +18,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const body = await req.json()
+
+  // Restaurar produto excluído
+  if (body.restore) {
+    const product = await prisma.product.update({
+      where: { id },
+      data: { deletedAt: null },
+      include: { categories: true },
+    })
+    return NextResponse.json(product)
+  }
+
   const categoryIds: string[] = body.categoryIds ?? []
   const sizes = body.sizes ?? []
   const totalStock = sizes.length > 0
@@ -47,13 +58,12 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
   const { id } = await params
-  try {
-    await prisma.product.delete({ where: { id } })
-    return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    if (e?.code === 'P2003' || e?.code === 'P2014') {
-      return NextResponse.json({ error: 'Este produto possui pedidos vinculados e não pode ser excluído. Desative-o em vez de excluir.' }, { status: 409 })
-    }
-    return NextResponse.json({ error: 'Erro ao excluir produto' }, { status: 500 })
-  }
+
+  // Soft delete — marca deletedAt, mantém no banco para histórico de pedidos
+  await prisma.product.update({
+    where: { id },
+    data: { deletedAt: new Date(), active: false },
+  })
+
+  return NextResponse.json({ ok: true })
 }
