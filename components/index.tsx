@@ -125,9 +125,26 @@ export function Newsletter() {
   )
 }
 
+const PAYMENT_BRANDS = [
+  { label: 'VISA', bg: '#1A1F71', color: '#fff', italic: true },
+  { label: 'MC', bg: 'linear-gradient(90deg,#EB001B 50%,#F79E1B 50%)', color: '#fff', italic: false },
+  { label: 'Hipercard', bg: '#B3131A', color: '#fff', italic: false },
+  { label: 'Hiper', bg: '#F37F2A', color: '#fff', italic: false },
+  { label: 'Elo', bg: '#FFD100', color: '#222', italic: false },
+  { label: 'Amex', bg: '#2E77BC', color: '#fff', italic: false },
+  { label: 'Pix', bg: '#32BCAD', color: '#fff', italic: false },
+  { label: 'Boleto', bg: '#555', color: '#fff', italic: false },
+  { label: 'PayPal', bg: '#003087', color: '#009CDE', italic: false },
+]
+
 export function Footer() {
   const ephyraMsg = encodeURIComponent('Olá! Vi o seu trabalho no site da Aura Pijamas e gostaria de tirar uma dúvida.')
   const ephyraUrl = `https://wa.me/5511945044242?text=${ephyraMsg}`
+  const waMsg = encodeURIComponent('Olá! Vim pelo site da Aura Pijamas e gostaria de tirar uma dúvida. 🌙')
+  const waUrl = `https://wa.me/5511922521920?text=${waMsg}`
+
+  const colText: React.CSSProperties = { display: 'block', fontSize: 13, color: 'var(--stone)', lineHeight: 1.9, textDecoration: 'none' }
+
   return (
     <footer>
       <div className="footer-grid footer-grid-centered">
@@ -152,11 +169,65 @@ export function Footer() {
         </div>
         <div className="footer-col">
           <h4>Contato</h4>
-          <a href="mailto:aura.pijamas26@gmail.com" style={{ textDecoration: 'none', color: 'inherit' }}>aura.pijamas26@gmail.com</a>
-          <a href={`https://wa.me/5511922521920?text=${encodeURIComponent('Olá! Vim pelo site da Aura Pijamas e gostaria de tirar uma dúvida. 🌙')}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>+55 11 92252-1920</a>
-          <span>São Paulo — SP</span>
+          <a href="mailto:aura.pijamas26@gmail.com" style={colText}>aura.pijamas26@gmail.com</a>
+          <a href={waUrl} target="_blank" rel="noopener noreferrer" style={colText}>+55 11 92252-1920</a>
+          <span style={colText}>São Paulo — SP</span>
         </div>
       </div>
+
+      {/* Meios de pagamento + Segurança */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 28, marginBottom: 28, display: 'flex', flexWrap: 'wrap', gap: 32, justifyContent: 'center', alignItems: 'flex-start' }}>
+
+        {/* Meios de pagamento */}
+        <div>
+          <p style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(196,181,165,0.5)', marginBottom: 10, textAlign: 'center' }}>Meios de pagamento</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+            {PAYMENT_BRANDS.map(b => (
+              <div key={b.label} style={{
+                background: b.bg,
+                color: b.color,
+                fontSize: 9,
+                fontWeight: 700,
+                fontStyle: b.italic ? 'italic' : 'normal',
+                fontFamily: b.italic ? 'Georgia, serif' : 'var(--font-sans)',
+                padding: '4px 8px',
+                borderRadius: 3,
+                letterSpacing: b.italic ? '0.05em' : '0.03em',
+                minWidth: 36,
+                textAlign: 'center',
+                lineHeight: '16px',
+                userSelect: 'none',
+              }}>
+                {b.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Segurança */}
+        <div>
+          <p style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(196,181,165,0.5)', marginBottom: 10, textAlign: 'center' }}>Segurança</p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+            {/* Google Safe Browsing */}
+            <div style={{ background: '#fff', borderRadius: 4, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" fill="#4CAF50"/>
+                <path d="M10 14l-3-3 1.4-1.4 1.6 1.6 4.6-4.6L16 8l-6 6z" fill="#fff"/>
+              </svg>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#333', letterSpacing: '0.02em', fontFamily: 'sans-serif' }}>Google<br/>Safe Browsing</span>
+            </div>
+            {/* Site Blindado */}
+            <div style={{ background: '#1565C0', borderRadius: 4, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none">
+                <path d="M6 0L0 2.5v4c0 3.5 2.5 6.75 6 7.5 3.5-.75 6-4 6-7.5v-4L6 0z" fill="#fff" fillOpacity="0.9"/>
+                <path d="M4.5 7L3 5.5l1-1L5.5 6l3-3 1 1-4 3z" fill="#1565C0"/>
+              </svg>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', letterSpacing: '0.02em', fontFamily: 'sans-serif' }}>SITE<br/>BLINDADO</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="footer-bottom" style={{ flexDirection: 'column', gap: 2, textAlign: 'center' }}>
         <span>© 2026 Aura Pijamas. Todos os direitos reservados.</span>
         <Link href="/admin" style={{ color: 'rgba(196,181,165,0.3)' }}>Admin</Link>
