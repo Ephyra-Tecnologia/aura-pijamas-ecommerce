@@ -708,7 +708,7 @@ footer {
   .modal { max-height: 92vh; border-radius: 12px 12px 0 0; }
   /* Imagem em proporção paisagem no mobile, igual antes */
   .modal-gallery { flex-shrink: 0; }
-  .modal-img { flex: none; aspect-ratio: 4/3; width: 100%; }
+  .modal-img { flex: none; aspect-ratio: 3/4; width: 100%; }
   .modal-thumbs { display: none; }
   .modal-dots { display: flex; }
 }
