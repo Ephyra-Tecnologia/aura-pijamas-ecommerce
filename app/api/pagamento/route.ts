@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
       const preference = await criarPreferencia({
         items: itemsInfo,
-        payer: { email: customer.email, firstName, lastName },
+        payer: { email: customer.email, firstName, lastName, cpf: customer.document, phone: customer.phone },
         externalReference: order.id,
         baseUrl,
         notificationUrl: `${baseUrl}/api/pagamento/webhook`,

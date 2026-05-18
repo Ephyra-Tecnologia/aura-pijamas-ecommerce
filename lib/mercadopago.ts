@@ -139,11 +139,23 @@ export async function criarPagamentoCartao(data: CartaoData) {
 
 export async function criarPreferencia(data: {
   items: CartItem[]
-  payer: { email: string; firstName: string; lastName: string }
+  payer: { email: string; firstName: string; lastName: string; cpf?: string; phone?: string }
   externalReference: string
   baseUrl: string
   notificationUrl: string
 }) {
+  const phoneDigits = data.payer.phone?.replace(/\D/g, '') ?? ''
+  const payerObj: Record<string, any> = {
+    email: data.payer.email,
+    name: `${data.payer.firstName} ${data.payer.lastName}`.trim(),
+  }
+  if (data.payer.cpf) {
+    payerObj.identification = { type: 'CPF', number: data.payer.cpf.replace(/\D/g, '') }
+  }
+  if (phoneDigits.length >= 10) {
+    payerObj.phone = { area_code: phoneDigits.slice(0, 2), number: phoneDigits.slice(2) }
+  }
+
   const res = await fetch(`${MP_API}/checkout/preferences`, {
     method: 'POST',
     headers: mpHeaders(crypto.randomUUID()),
@@ -155,10 +167,7 @@ export async function criarPreferencia(data: {
         unit_price: item.price,
         currency_id: 'BRL',
       })),
-      payer: {
-        email: data.payer.email,
-        name: `${data.payer.firstName} ${data.payer.lastName}`.trim(),
-      },
+      payer: payerObj,
       payment_methods: {
         excluded_payment_types: [{ id: 'ticket' }],
       },
