@@ -799,12 +799,31 @@ footer {
 }
 
 @media (max-width: 640px) {
-  .modal { grid-template-columns: 1fr; }
+  /* Modal vira sheet que sobe do rodapé */
   .modal-overlay { padding: 0; align-items: flex-end; }
-  .modal { max-height: 92vh; border-radius: 12px 12px 0 0; }
-  /* Imagem em proporção paisagem no mobile, igual antes */
+  .modal {
+    grid-template-columns: 1fr;
+    max-height: 92vh;
+    border-radius: 12px 12px 0 0;
+    overflow-y: auto;       /* o modal inteiro rola */
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Galeria não encolhe — fica no topo, tamanho fixo */
   .modal-gallery { flex-shrink: 0; }
-  .modal-img { flex: none; aspect-ratio: 3/4; width: 100%; }
+  .modal-img {
+    flex: none;
+    aspect-ratio: 3/4;
+    width: 100%;
+    max-height: 55vh;       /* nunca ultrapassa 55% da tela */
+  }
+  /* Conteúdo logo abaixo, sem scroll próprio */
+  .modal-content {
+    overflow-y: visible;
+    max-height: none;
+    padding: 28px 20px 40px;
+  }
   .modal-thumbs { display: none; }
   .modal-dots { display: flex; }
 }
