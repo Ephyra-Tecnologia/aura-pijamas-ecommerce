@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartDrawer />
         <ProductModal />
         <Toast />
-        <WhatsAppButton phone="11972893178" />
+        <WhatsAppButton phone="11922521920" />
       </body>
     </html>
   )

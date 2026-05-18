@@ -149,7 +149,12 @@ export function Footer() {
         <div className="footer-col">
           <h4>Ajuda</h4>
           <Link href="/trocas-devolucoes">Trocas e devoluções</Link>
-          <Link href="#">Contato</Link>
+        </div>
+        <div className="footer-col">
+          <h4>Contato</h4>
+          <a href="mailto:aura.pijamas26@gmail.com" style={{ textDecoration: 'none', color: 'inherit' }}>aura.pijamas26@gmail.com</a>
+          <a href={`https://wa.me/5511922521920?text=${encodeURIComponent('Olá! Vim pelo site da Aura Pijamas e gostaria de tirar uma dúvida. 🌙')}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>+55 11 92252-1920</a>
+          <span>São Paulo — SP</span>
         </div>
       </div>
       <div className="footer-bottom" style={{ flexDirection: 'column', gap: 2, textAlign: 'center' }}>
