@@ -152,13 +152,9 @@ export function Footer() {
           <Link href="#">Contato</Link>
         </div>
       </div>
-      <div className="footer-bottom" style={{ flexDirection: 'column', gap: 6, textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
-          <span>© 2026 Aura Pijamas. Todos os direitos reservados.</span>
-          <Link href="#">Privacidade</Link>
-          <Link href="#">Termos</Link>
-          <Link href="/admin" style={{ color: 'rgba(196,181,165,0.3)' }}>Admin</Link>
-        </div>
+      <div className="footer-bottom" style={{ flexDirection: 'column', gap: 2, textAlign: 'center' }}>
+        <span>© 2026 Aura Pijamas. Todos os direitos reservados.</span>
+        <Link href="/admin" style={{ color: 'rgba(196,181,165,0.3)' }}>Admin</Link>
         <a href={ephyraUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'rgba(196,181,165,0.45)', textDecoration: 'none', letterSpacing: '0.05em' }}>
           Produzido e gerenciado por: Ephyra Tecnologia
         </a>
