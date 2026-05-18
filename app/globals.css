@@ -704,9 +704,11 @@ footer {
 
 @media (max-width: 640px) {
   .modal { grid-template-columns: 1fr; }
-  .modal-gallery { max-height: 56vw; min-height: 220px; }
   .modal-overlay { padding: 0; align-items: flex-end; }
   .modal { max-height: 92vh; border-radius: 12px 12px 0 0; }
+  /* Imagem em proporção paisagem no mobile, igual antes */
+  .modal-gallery { flex-shrink: 0; }
+  .modal-img { flex: none; aspect-ratio: 4/3; width: 100%; }
   .modal-thumbs { display: none; }
   .modal-dots { display: flex; }
 }
