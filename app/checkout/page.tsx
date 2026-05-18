@@ -4,26 +4,72 @@ import { useCartStore } from '@/store/cart'
 import Link from 'next/link'
 import Image from 'next/image'
 
-
-interface FreteOption {
-  name: string
-  price: number
-  days: number
-}
-
+interface FreteOption { name: string; price: number; days: number }
 interface FormData {
-  name: string
-  email: string
-  phone: string
-  zipCode: string
-  address: string
-  number: string
-  complement: string
-  neighborhood: string
-  city: string
-  state: string
+  name: string; email: string; phone: string
+  zipCode: string; address: string; number: string
+  complement: string; neighborhood: string; city: string; state: string
 }
 
+const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
+
+// ── Campo de formulário reutilizável ─────────────────────────────────────────
+function Field({ label, value, onChange, type = 'text', placeholder = '', maxLength }: {
+  label: string; value: string; onChange: (v: string) => void
+  type?: string; placeholder?: string; maxLength?: number
+}) {
+  return (
+    <div className="checkout-field" style={{ gap: 0 }}>
+      <label className="checkout-label">{label}</label>
+      <input
+        className="checkout-input"
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        autoComplete="on"
+      />
+    </div>
+  )
+}
+
+// ── Resumo do pedido (componente compartilhado) ──────────────────────────────
+function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
+  items: any[]; totalItems: () => number; selectedFrete: FreteOption | null; totalFinal: number
+}) {
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ width: 48, height: 64, background: 'var(--sand)', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+              {item.image && <Image src={item.image} alt={item.name} fill style={{ objectFit: 'cover' }} />}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--stone)', marginTop: 2 }}>Tam. {item.size} · Qtd. {item.qty}</div>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--earth)', flexShrink: 0 }}>{fmt(item.price * item.qty)}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ borderTop: '1px solid var(--sand)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--stone)' }}>
+          <span>Subtotal</span><span>{fmt(totalItems())}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--stone)' }}>
+          <span>Frete</span><span>{selectedFrete ? (selectedFrete.price === 0 ? 'Grátis' : fmt(selectedFrete.price)) : '—'}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-serif)', fontSize: 18, marginTop: 6, borderTop: '1px solid var(--sand)', paddingTop: 12 }}>
+          <span>Total</span><span>{fmt(totalFinal)}</span>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Pix confirmação ──────────────────────────────────────────────────────────
 function PixConfirmacao({ qrCode, qrCodeUrl, orderId }: { qrCode: string; qrCodeUrl: string; orderId: string }) {
   const [status, setStatus] = useState<'waiting' | 'paid'>('waiting')
 
@@ -32,47 +78,38 @@ function PixConfirmacao({ qrCode, qrCodeUrl, orderId }: { qrCode: string; qrCode
       try {
         const res = await fetch(`/api/pedidos/${orderId}`)
         const data = await res.json()
-        if (data.status === 'PAID') {
-          setStatus('paid')
-          clearInterval(interval)
-        }
+        if (data.status === 'PAID') { setStatus('paid'); clearInterval(interval) }
       } catch {}
     }, 3000)
     return () => clearInterval(interval)
   }, [orderId])
 
   if (status === 'paid') return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', textAlign: 'center', padding: '40px 0' }}>
-      <div style={{ fontSize: 64 }}>✅</div>
-      <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, color: 'var(--dark)' }}>
-        Pagamento confirmado!
-      </h2>
-      <p style={{ fontSize: 14, color: 'var(--stone)', maxWidth: 360, lineHeight: 1.7 }}>
-        Seu pedido foi confirmado. Em breve você receberá um e-mail com os detalhes.
-      </p>
-      <p style={{ fontSize: 13, color: 'var(--earth)' }}>
-        Pedido #{orderId.slice(-8).toUpperCase()}
-      </p>
-      <a href="/" style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '14px 32px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', textDecoration: 'none', marginTop: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center', padding: '40px 20px' }}>
+      <div style={{ fontSize: 56 }}>✅</div>
+      <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300 }}>Pagamento confirmado!</h2>
+      <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.7 }}>Seu pedido foi confirmado. Em breve você receberá um e-mail.</p>
+      <p style={{ fontSize: 12, color: 'var(--earth)' }}>Pedido #{orderId.slice(-8).toUpperCase()}</p>
+      <a href="/" style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '16px 32px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', textDecoration: 'none' }}>
         Voltar para a loja
       </a>
     </div>
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', textAlign: 'center' }}>
-      <div style={{ fontSize: 48 }}>⚡</div>
-      <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300 }}>Pix gerado!</h2>
-      <p style={{ fontSize: 14, color: 'var(--stone)', maxWidth: 360, lineHeight: 1.7 }}>
-        Escaneie o QR Code ou copie o código Pix abaixo. O pedido será confirmado automaticamente após o pagamento.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center', padding: '20px' }}>
+      <div style={{ fontSize: 40 }}>⚡</div>
+      <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300 }}>Pix gerado!</h2>
+      <p style={{ fontSize: 13, color: 'var(--stone)', lineHeight: 1.7 }}>
+        Escaneie o QR Code ou copie o código. O pedido será confirmado automaticamente.
       </p>
-      {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code Pix" style={{ width: 200, height: 200 }} />}
-      <div style={{ width: '100%', background: 'white', border: '1px solid var(--sand)', padding: '16px', wordBreak: 'break-all', fontSize: 11, color: 'var(--stone)', textAlign: 'left' }}>
+      {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code Pix" style={{ width: 180, height: 180 }} />}
+      <div style={{ width: '100%', background: 'var(--sand)', padding: '14px', wordBreak: 'break-all', fontSize: 10, color: 'var(--stone)', textAlign: 'left', lineHeight: 1.6 }}>
         {qrCode}
       </div>
       <button
         onClick={() => navigator.clipboard.writeText(qrCode).then(() => alert('Código copiado!'))}
-        style={{ background: 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '14px 32px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}
+        style={{ width: '100%', background: 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '16px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}
       >
         Copiar código Pix
       </button>
@@ -80,13 +117,12 @@ function PixConfirmacao({ qrCode, qrCodeUrl, orderId }: { qrCode: string; qrCode
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0ad4e' }} />
         Aguardando pagamento...
       </div>
-      <p style={{ fontSize: 12, color: 'var(--stone)' }}>
-        Pedido #{orderId.slice(-8).toUpperCase()} · Válido por 1 hora
-      </p>
+      <p style={{ fontSize: 12, color: 'var(--stone)' }}>Pedido #{orderId.slice(-8).toUpperCase()} · Válido por 1 hora</p>
     </div>
   )
 }
 
+// ── Página principal ─────────────────────────────────────────────────────────
 export default function CheckoutPage() {
   const { items, total } = useCartStore()
   const [step, setStep] = useState(1)
@@ -99,6 +135,7 @@ export default function CheckoutPage() {
   const [pixData, setPixData] = useState<{ qrCode: string; qrCodeUrl: string } | null>(null)
   const [processingPayment, setProcessingPayment] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   const [form, setForm] = useState<FormData>({
     name: '', email: '', phone: '',
@@ -106,10 +143,7 @@ export default function CheckoutPage() {
     complement: '', neighborhood: '', city: '', state: '',
   })
 
-  const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
-
-  const setField = (key: keyof FormData, value: string) =>
-    setForm(f => ({ ...f, [key]: value }))
+  const setField = (key: keyof FormData, value: string) => setForm(f => ({ ...f, [key]: value }))
 
   const buscarCep = async (cep: string) => {
     const clean = cep.replace(/\D/g, '')
@@ -118,15 +152,7 @@ export default function CheckoutPage() {
     try {
       const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`)
       const data = await res.json()
-      if (!data.erro) {
-        setForm(f => ({
-          ...f,
-          address: data.logradouro,
-          neighborhood: data.bairro,
-          city: data.localidade,
-          state: data.uf,
-        }))
-      }
+      if (!data.erro) setForm(f => ({ ...f, address: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf }))
     } catch {}
     setLoadingCep(false)
   }
@@ -147,9 +173,6 @@ export default function CheckoutPage() {
   const handlePayment = async () => {
     setProcessingPayment(true)
     try {
-      let cardToken: string | undefined
-      let paymentMethodId: string | undefined
-
       const res = await fetch('/api/pagamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,223 +186,237 @@ export default function CheckoutPage() {
           cartItems: items,
           total: totalFinal,
           paymentMethod,
-        })
+        }),
       })
       const data = await res.json()
-
-      if (!res.ok) {
-        alert(data.error ?? 'Erro ao processar pagamento. Tente novamente.')
-        return
-      }
-
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
-        return
-      }
-
+      if (!res.ok) { alert(data.error ?? 'Erro ao processar pagamento.'); return }
+      if (data.checkoutUrl) { window.location.href = data.checkoutUrl; return }
       setOrderId(data.orderId)
-      if (data.pix) {
-        setPixData(data.pix)
-      }
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao processar pagamento. Tente novamente.')
-    }
+      if (data.pix) setPixData(data.pix)
+    } catch { alert('Erro ao processar pagamento. Tente novamente.') }
     setProcessingPayment(false)
   }
 
   if (items.length === 0) return (
-    <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', gap: 24 }}>
-      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 28, color: 'var(--dark)' }}>Seu carrinho está vazio</p>
+    <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', gap: 24, padding: '0 24px', textAlign: 'center' }}>
+      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 26, color: 'var(--dark)' }}>Seu carrinho está vazio</p>
       <Link href="/" style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--earth)', textDecoration: 'none', borderBottom: '1px solid var(--stone)', paddingBottom: 2 }}>
         Voltar para a loja
       </Link>
     </div>
   )
 
+  const cardStyle = { background: 'white', border: '1px solid var(--sand)', padding: '20px' }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', fontFamily: 'var(--font-sans)' }}>
-      <div style={{ borderBottom: '1px solid var(--sand)', padding: '20px 6vw', display: 'flex', justifyContent: 'center' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
-          <Image src="/assets/aura-header.png" alt="Aura Pijamas" height={40} width={140} style={{ objectFit: 'contain', mixBlendMode: 'multiply' }} />
-        </Link>
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div style={{ borderBottom: '1px solid var(--sand)', padding: '16px 6vw', display: 'flex', justifyContent: 'center' }}>
+        <Link href="/"><Image src="/assets/aura-header.png" alt="Aura Pijamas" height={36} width={120} style={{ objectFit: 'contain', mixBlendMode: 'multiply' }} /></Link>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 6vw', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 60 }}>
-        <div>
+      {/* ── Resumo mobile (toggle no topo) ─────────────────────────────── */}
+      <div className="checkout-summary-mobile">
+        <button
+          onClick={() => setSummaryOpen(o => !o)}
+          style={{ width: '100%', background: 'var(--sand)', border: 'none', borderBottom: '1px solid #d4c9bc', padding: '14px 5vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}
+        >
+          <span style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--earth)' }}>
+            {summaryOpen ? 'Ocultar resumo ▲' : 'Ver resumo do pedido ▼'}
+          </span>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: 'var(--dark)' }}>{fmt(totalFinal)}</span>
+        </button>
+        {summaryOpen && (
+          <div style={{ background: 'white', borderBottom: '1px solid var(--sand)', padding: '20px 5vw' }}>
+            <OrderSummary items={items} totalItems={total} selectedFrete={selectedFrete} totalFinal={totalFinal} />
+          </div>
+        )}
+      </div>
+
+      {/* ── Layout principal ───────────────────────────────────────────── */}
+      <div className="checkout-layout">
+
+        {/* ── Coluna esquerda: formulário ─────────────────────────────── */}
+        <div style={{ padding: 'clamp(20px, 5vw, 0px)' }}>
+
           {/* Steps */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 40, alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 28, padding: '24px 0 0' }}>
             {['Dados', 'Endereço', 'Pagamento'].map((s, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: step > i + 1 ? 'var(--earth)' : step === i + 1 ? 'var(--dark)' : 'var(--sand)', color: step >= i + 1 ? 'var(--cream)' : 'var(--stone)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 400 }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: i < 2 ? '1 1 auto' : undefined }}>
+                <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: step > i + 1 ? 'var(--earth)' : step === i + 1 ? 'var(--dark)' : 'var(--sand)', color: step >= i + 1 ? 'var(--cream)' : 'var(--stone)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
                   {step > i + 1 ? '✓' : i + 1}
                 </div>
-                <span style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: step === i + 1 ? 'var(--dark)' : 'var(--stone)' }}>{s}</span>
-                {i < 2 && <span style={{ color: 'var(--sand)', margin: '0 4px' }}>—</span>}
+                <span style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: step === i + 1 ? 'var(--dark)' : 'var(--stone)', whiteSpace: 'nowrap' }}>{s}</span>
+                {i < 2 && <div style={{ flex: 1, height: 1, background: 'var(--sand)', minWidth: 12 }} />}
               </div>
             ))}
           </div>
 
-          {/* Step 1 */}
+          {/* ── Step 1: Dados ──────────────────────────────────────────── */}
           {step === 1 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>Seus dados</h2>
-              {[
-                { label: 'Nome completo', key: 'name' as const, type: 'text' },
-                { label: 'E-mail', key: 'email' as const, type: 'email' },
-                { label: 'Telefone / WhatsApp', key: 'phone' as const, type: 'tel' },
-              ].map(field => (
-                <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>{field.label}</label>
-                  <input type={field.type} value={form[field.key]} onChange={e => setField(field.key, e.target.value)} required style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
-                </div>
-              ))}
-              <button onClick={() => { if (form.name && form.email && form.phone) setStep(2) }} style={{ background: 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '16px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', marginTop: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Seus dados</h2>
+              <Field label="Nome completo" value={form.name} onChange={v => setField('name', v)} type="text" />
+              <Field label="E-mail" value={form.email} onChange={v => setField('email', v)} type="email" />
+              <Field label="Telefone / WhatsApp" value={form.phone} onChange={v => setField('phone', v)} type="tel" />
+              <button
+                className="checkout-btn-primary"
+                onClick={() => { if (form.name && form.email && form.phone) setStep(2) }}
+                style={{ marginTop: 8 }}
+              >
                 Continuar
               </button>
             </div>
           )}
 
-          {/* Step 2 */}
+          {/* ── Step 2: Endereço ───────────────────────────────────────── */}
           {step === 2 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>Endereço de entrega</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>CEP</label>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <input type="text" value={form.zipCode} onChange={e => { setField('zipCode', e.target.value); buscarCep(e.target.value) }} maxLength={9} placeholder="00000-000" style={{ flex: 1, background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
-                  {loadingCep && <span style={{ fontSize: 12, color: 'var(--stone)', alignSelf: 'center' }}>Buscando...</span>}
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Endereço de entrega</h2>
+              <div className="checkout-field">
+                <label className="checkout-label">CEP {loadingCep && <span style={{ color: 'var(--stone)', fontStyle: 'italic' }}>buscando...</span>}</label>
+                <input
+                  className="checkout-input"
+                  type="text"
+                  value={form.zipCode}
+                  onChange={e => { setField('zipCode', e.target.value); buscarCep(e.target.value) }}
+                  maxLength={9}
+                  placeholder="00000-000"
+                  inputMode="numeric"
+                />
               </div>
-              {[
-                { label: 'Endereço', key: 'address' as const },
-                { label: 'Número', key: 'number' as const },
-                { label: 'Complemento', key: 'complement' as const },
-                { label: 'Bairro', key: 'neighborhood' as const },
-              ].map(field => (
-                <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>{field.label}</label>
-                  <input type="text" value={form[field.key]} onChange={e => setField(field.key, e.target.value)} style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
-                </div>
-              ))}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>Cidade</label>
-                  <input type="text" value={form.city} onChange={e => setField('city', e.target.value)} style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)' }}>UF</label>
-                  <input type="text" value={form.state} onChange={e => setField('state', e.target.value)} maxLength={2} style={{ width: 60, background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
-                </div>
+              <Field label="Endereço" value={form.address} onChange={v => setField('address', v)} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 12 }}>
+                <Field label="Número" value={form.number} onChange={v => setField('number', v)} />
+                <Field label="UF" value={form.state} onChange={v => setField('state', v)} maxLength={2} />
               </div>
-              <div style={{ borderTop: '1px solid var(--sand)', paddingTop: 20, marginTop: 4 }}>
-                <button onClick={calcularFrete} disabled={!form.zipCode || loadingFrete} style={{ background: 'transparent', border: '1px solid var(--dark)', color: 'var(--dark)', padding: '12px 24px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', opacity: !form.zipCode ? 0.5 : 1 }}>
+              <Field label="Complemento" value={form.complement} onChange={v => setField('complement', v)} />
+              <Field label="Bairro" value={form.neighborhood} onChange={v => setField('neighborhood', v)} />
+              <Field label="Cidade" value={form.city} onChange={v => setField('city', v)} />
+
+              {/* Frete */}
+              <div style={{ borderTop: '1px solid var(--sand)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <button
+                  onClick={calcularFrete}
+                  disabled={!form.zipCode || loadingFrete}
+                  style={{ background: 'transparent', border: '1px solid var(--dark)', color: 'var(--dark)', padding: '13px 20px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', opacity: !form.zipCode ? 0.5 : 1, borderRadius: 0, WebkitAppearance: 'none' }}
+                >
                   {loadingFrete ? 'Calculando...' : 'Calcular frete'}
                 </button>
-                {freteOptions.length > 0 && (
-                  <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {freteOptions.map((f, i) => (
-                      <div key={i} onClick={() => setSelectedFrete(f)} style={{ border: `1px solid ${selectedFrete?.name === f.name ? 'var(--dark)' : 'var(--sand)'}`, padding: '12px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: selectedFrete?.name === f.name ? 'var(--sand)' : 'white' }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 400, color: 'var(--dark)' }}>{f.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--stone)' }}>{f.days === 0 ? 'A combinar' : `até ${f.days} dias úteis`}</div>
-                        </div>
-                        <div style={{ fontSize: 14, color: 'var(--earth)' }}>{f.price === 0 ? 'Grátis' : fmt(f.price)}</div>
-                      </div>
-                    ))}
+                {freteOptions.map((f, i) => (
+                  <div key={i} onClick={() => setSelectedFrete(f)} style={{ border: `1px solid ${selectedFrete?.name === f.name ? 'var(--dark)' : 'var(--sand)'}`, padding: '14px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: selectedFrete?.name === f.name ? 'var(--sand)' : 'white' }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: 'var(--dark)' }}>{f.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--stone)', marginTop: 2 }}>{f.days === 0 ? 'A combinar' : `até ${f.days} dias úteis`}</div>
+                    </div>
+                    <div style={{ fontSize: 14, color: 'var(--earth)', fontWeight: 400 }}>{f.price === 0 ? 'Grátis' : fmt(f.price)}</div>
                   </div>
-                )}
+                ))}
               </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                <button onClick={() => setStep(1)} style={{ flex: 1, background: 'transparent', border: '1px solid var(--sand)', color: 'var(--dark)', padding: '14px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}>Voltar</button>
-                <button onClick={() => { if (form.address && form.city && selectedFrete) setStep(3) }} style={{ flex: 2, background: 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '14px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}>Continuar</button>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                <button className="checkout-btn-secondary" onClick={() => setStep(1)}>Voltar</button>
+                <button
+                  className="checkout-btn-primary"
+                  style={{ flex: 2 }}
+                  onClick={() => { if (form.address && form.city && selectedFrete) setStep(3) }}
+                >
+                  Continuar
+                </button>
               </div>
             </div>
           )}
 
-          {/* Step 3 */}
+          {/* ── Step 3: Pagamento ──────────────────────────────────────── */}
           {step === 3 && !pixData && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>Pagamento</h2>
-              <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
-                <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>Entrega</h3>
-                <p style={{ fontSize: 14, color: 'var(--dark)', lineHeight: 1.7 }}>
-                  {form.name}<br/>{form.address}, {form.number} {form.complement}<br/>{form.neighborhood} — {form.city}/{form.state}<br/>CEP {form.zipCode}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Pagamento</h2>
+
+              {/* Resumo da entrega */}
+              <div style={cardStyle}>
+                <p style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 12 }}>Entrega</p>
+                <p style={{ fontSize: 13, color: 'var(--dark)', lineHeight: 1.8 }}>
+                  {form.name}<br />{form.address}, {form.number}{form.complement ? ` — ${form.complement}` : ''}<br />
+                  {form.neighborhood} · {form.city}/{form.state}<br />CEP {form.zipCode}
                 </p>
-                <p style={{ fontSize: 13, color: 'var(--earth)', marginTop: 12 }}>{selectedFrete?.name} — {fmt(selectedFrete?.price || 0)} · até {selectedFrete?.days} dias úteis</p>
+                <p style={{ fontSize: 12, color: 'var(--earth)', marginTop: 10 }}>
+                  {selectedFrete?.name} · {selectedFrete?.price === 0 ? 'Grátis' : fmt(selectedFrete?.price || 0)}
+                  {selectedFrete?.days ? ` · até ${selectedFrete.days} dias úteis` : ''}
+                </p>
+                <button onClick={() => setStep(2)} style={{ marginTop: 12, background: 'none', border: 'none', fontSize: 11, color: 'var(--stone)', cursor: 'pointer', padding: 0, textDecoration: 'underline', letterSpacing: '0.05em' }}>
+                  Alterar
+                </button>
               </div>
-              <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
-                <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>CPF</h3>
-                <input type="text" placeholder="000.000.000-00" value={documento} onChange={e => setDocumento(e.target.value)} maxLength={14} style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }} />
+
+              {/* CPF */}
+              <div style={cardStyle}>
+                <label className="checkout-label">CPF <span style={{ fontSize: 9, color: 'var(--stone)', textTransform: 'none', letterSpacing: 0 }}>(obrigatório para Pix)</span></label>
+                <input
+                  className="checkout-input"
+                  type="text"
+                  placeholder="000.000.000-00"
+                  value={documento}
+                  onChange={e => setDocumento(e.target.value)}
+                  maxLength={14}
+                  inputMode="numeric"
+                  style={{ border: 'none', borderBottom: '1px solid var(--sand)', padding: '10px 0', background: 'transparent' }}
+                />
               </div>
-              <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px' }}>
-                <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>Forma de pagamento</h3>
-                <div style={{ display: 'flex', gap: 12 }}>
+
+              {/* Forma de pagamento */}
+              <div style={cardStyle}>
+                <p style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 14 }}>Forma de pagamento</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {(['pix', 'credit_card'] as const).map(method => (
-                    <div key={method} onClick={() => setPaymentMethod(method)} style={{ flex: 1, border: `1px solid ${paymentMethod === method ? 'var(--dark)' : 'var(--sand)'}`, padding: '16px', cursor: 'pointer', textAlign: 'center', background: paymentMethod === method ? 'var(--sand)' : 'white' }}>
-                      <div style={{ fontSize: 20, marginBottom: 4 }}>{method === 'pix' ? '⚡' : '💳'}</div>
-                      <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--dark)' }}>{method === 'pix' ? 'Pix' : 'Cartão'}</div>
-                      {method === 'pix' && <div style={{ fontSize: 11, color: 'var(--earth)', marginTop: 4 }}>Aprovação imediata</div>}
+                    <div
+                      key={method}
+                      onClick={() => setPaymentMethod(method)}
+                      style={{ border: `1px solid ${paymentMethod === method ? 'var(--dark)' : 'var(--sand)'}`, padding: '16px 12px', cursor: 'pointer', textAlign: 'center', background: paymentMethod === method ? 'var(--sand)' : 'white' }}
+                    >
+                      <div style={{ fontSize: 22, marginBottom: 6 }}>{method === 'pix' ? '⚡' : '💳'}</div>
+                      <div style={{ fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dark)' }}>{method === 'pix' ? 'Pix' : 'Cartão'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--earth)', marginTop: 3 }}>{method === 'pix' ? 'Aprovação imediata' : 'Via Stripe'}</div>
                     </div>
                   ))}
                 </div>
+                {paymentMethod === 'credit_card' && (
+                  <p style={{ fontSize: 12, color: 'var(--stone)', marginTop: 14, lineHeight: 1.7 }}>
+                    Você será redirecionado para o Stripe. Aceitamos Visa, Mastercard, Elo, Hipercard e Amex.
+                  </p>
+                )}
               </div>
-              {paymentMethod === 'credit_card' && (
-                <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <p style={{ fontSize: 13, color: 'var(--stone)', lineHeight: 1.7, margin: 0 }}>
-                    Você será redirecionado para o ambiente seguro do Stripe para inserir os dados do cartão.
-                  </p>
-                  <p style={{ fontSize: 11, color: 'var(--earth)', margin: 0 }}>
-                    Aceitamos Visa, Mastercard, Elo, Hipercard e American Express.
-                  </p>
-                </div>
-              )}
 
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button onClick={() => setStep(2)} style={{ flex: 1, background: 'transparent', border: '1px solid var(--sand)', color: 'var(--dark)', padding: '14px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}>Voltar</button>
-                <button onClick={handlePayment} disabled={processingPayment} style={{ flex: 2, background: 'var(--bark)', color: 'var(--cream)', border: 'none', padding: '14px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: processingPayment ? 'not-allowed' : 'pointer', opacity: processingPayment ? 0.7 : 1 }}>
-                  {processingPayment ? 'Processando...' : paymentMethod === 'pix' ? 'Gerar Pix →' : 'Pagar com cartão →'}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="checkout-btn-secondary" onClick={() => setStep(2)}>Voltar</button>
+                <button
+                  className="checkout-btn-primary"
+                  style={{ flex: 2, opacity: processingPayment ? 0.7 : 1, cursor: processingPayment ? 'not-allowed' : 'pointer' }}
+                  onClick={handlePayment}
+                  disabled={processingPayment}
+                >
+                  {processingPayment ? 'Processando...' : paymentMethod === 'pix' ? `Gerar Pix · ${fmt(totalFinal)}` : `Pagar · ${fmt(totalFinal)}`}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Pix Confirmação */}
+          {/* Pix QR Code */}
           {pixData && orderId && (
-            <PixConfirmacao
-              qrCode={pixData.qrCode}
-              qrCodeUrl={pixData.qrCodeUrl}
-              orderId={orderId}
-            />
+            <PixConfirmacao qrCode={pixData.qrCode} qrCodeUrl={pixData.qrCodeUrl} orderId={orderId} />
           )}
 
+          <div style={{ height: 48 }} />
         </div>
 
-        {/* RESUMO */}
-        <div>
+        {/* ── Coluna direita: resumo (só desktop) ────────────────────── */}
+        <div className="checkout-summary-desktop">
           <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', position: 'sticky', top: 24 }}>
             <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 20 }}>Seu pedido</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
-              {items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ width: 48, height: 64, background: 'var(--sand)', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
-                    {item.image ? <Image src={item.image} alt={item.name} fill style={{ objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: 'var(--sand)' }} />}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{item.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--stone)' }}>Tam. {item.size} · Qtd. {item.qty}</div>
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--earth)' }}>{fmt(item.price * item.qty)}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ borderTop: '1px solid var(--sand)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--stone)' }}><span>Subtotal</span><span>{fmt(total())}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--stone)' }}><span>Frete</span><span>{selectedFrete ? fmt(selectedFrete.price) : '—'}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-serif)', fontSize: 18, marginTop: 8, borderTop: '1px solid var(--sand)', paddingTop: 12 }}><span>Total</span><span>{fmt(totalFinal)}</span></div>
-            </div>
+            <OrderSummary items={items} totalItems={total} selectedFrete={selectedFrete} totalFinal={totalFinal} />
           </div>
         </div>
+
       </div>
     </div>
   )
