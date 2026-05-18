@@ -461,7 +461,7 @@ footer {
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 48px;
   margin-bottom: 60px;
 }
@@ -792,7 +792,7 @@ footer {
   .feature-item:nth-child(3), .feature-item:nth-child(4) { border-top: 1px solid var(--sand); }
   .newsletter { grid-template-columns: 1fr; gap: 36px; padding: 60px 6vw; }
   .newsletter-title { font-size: 34px; }
-  .footer-grid { grid-template-columns: 1fr 1fr; gap: 36px; }
+  .footer-grid { grid-template-columns: 1fr 1fr 1fr; gap: 36px; }
   .modal-overlay { padding: 16px; }
   .section-title { font-size: 32px; }
   .section-header { padding: 56px 5vw 28px; }
@@ -852,6 +852,8 @@ footer {
   .newsletter-input { font-size: 16px; }
   footer { padding: 36px 20px 20px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 20px 28px; margin-bottom: 24px; }
+  .footer-payment-badge { font-size: 8px !important; padding: 3px 6px !important; }
+  .footer-security-badge { transform: scale(0.8); transform-origin: center; }
   .footer-bottom { flex-direction: column; gap: 6px; text-align: center; padding-top: 16px; font-size: 10px; }
   .cart-drawer { width: 100vw; }
   .toast { bottom: 24px; font-size: 11px; white-space: normal; text-align: center; max-width: 90vw; }
