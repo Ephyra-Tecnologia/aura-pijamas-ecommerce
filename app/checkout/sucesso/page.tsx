@@ -6,8 +6,9 @@ import Image from 'next/image'
 
 function SucessoContent() {
   const params = useSearchParams()
-  const externalReference = params.get('external_reference') ?? ''
-  const orderId = externalReference.slice(-8).toUpperCase()
+  // Stripe envia ?session_id=... após checkout de cartão
+  const sessionId = params.get('session_id') ?? ''
+  const shortId = sessionId ? sessionId.slice(-8).toUpperCase() : ''
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', fontFamily: 'var(--font-sans)' }}>
@@ -24,9 +25,9 @@ function SucessoContent() {
         <p style={{ fontSize: 14, color: 'var(--stone)', maxWidth: 400, lineHeight: 1.8, margin: 0 }}>
           Seu pedido foi confirmado com sucesso. Em breve você receberá um e-mail com todos os detalhes.
         </p>
-        {orderId && (
+        {shortId && (
           <p style={{ fontSize: 13, color: 'var(--earth)', margin: 0 }}>
-            Pedido #{orderId}
+            Ref. #{shortId}
           </p>
         )}
         <a href="/" style={{ background: 'var(--dark)', color: 'var(--cream)', padding: '14px 40px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', textDecoration: 'none', marginTop: 8 }}>

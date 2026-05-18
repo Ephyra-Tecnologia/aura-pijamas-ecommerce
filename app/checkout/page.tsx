@@ -4,17 +4,6 @@ import { useCartStore } from '@/store/cart'
 import Link from 'next/link'
 import Image from 'next/image'
 
-declare global { interface Window { MercadoPago: any } }
-
-function detectCardBrand(number: string): string {
-  const n = number.replace(/\s/g, '')
-  if (/^4/.test(n)) return 'visa'
-  if (/^(5[1-5]|2[2-7])/.test(n)) return 'master'
-  if (/^3[47]/.test(n)) return 'amex'
-  if (/^606282/.test(n)) return 'hipercard'
-  if (/^(636368|438935|504175|451416|636297|5067|4576|4011|506699)/.test(n)) return 'elo'
-  return 'visa'
-}
 
 interface FreteOption {
   name: string
@@ -165,9 +154,11 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: { name: form.name, email: form.email, phone: form.phone, document: documento },
+          customer: { name: form.name, email: form.email, phone: form.phone },
           shipping: {
-            address: { line_1: `${form.address}, ${form.number}`, zip_code: form.zipCode.replace(/\D/g, ''), city: form.city, state: form.state, country: 'BR' }
+            method: selectedFrete?.name,
+            price: selectedFrete?.price || 0,
+            address: { line_1: `${form.address}, ${form.number}`, zip_code: form.zipCode.replace(/\D/g, ''), city: form.city, state: form.state, country: 'BR' },
           },
           cartItems: items,
           total: totalFinal,
@@ -336,7 +327,7 @@ export default function CheckoutPage() {
               {paymentMethod === 'credit_card' && (
                 <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <p style={{ fontSize: 13, color: 'var(--stone)', lineHeight: 1.7, margin: 0 }}>
-                    Você será redirecionado para o ambiente seguro do Mercado Pago para inserir os dados do cartão.
+                    Você será redirecionado para o ambiente seguro do Stripe para inserir os dados do cartão.
                   </p>
                   <p style={{ fontSize: 11, color: 'var(--earth)', margin: 0 }}>
                     Aceitamos Visa, Mastercard, Elo, Hipercard e American Express.
@@ -346,7 +337,7 @@ export default function CheckoutPage() {
 
               <div style={{ display: 'flex', gap: 12 }}>
                 <button onClick={() => setStep(2)} style={{ flex: 1, background: 'transparent', border: '1px solid var(--sand)', color: 'var(--dark)', padding: '14px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}>Voltar</button>
-                <button onClick={handlePayment} disabled={processingPayment || !documento} style={{ flex: 2, background: 'var(--bark)', color: 'var(--cream)', border: 'none', padding: '14px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: processingPayment ? 'not-allowed' : 'pointer', opacity: processingPayment || !documento ? 0.7 : 1 }}>
+                <button onClick={handlePayment} disabled={processingPayment} style={{ flex: 2, background: 'var(--bark)', color: 'var(--cream)', border: 'none', padding: '14px', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: processingPayment ? 'not-allowed' : 'pointer', opacity: processingPayment ? 0.7 : 1 }}>
                   {processingPayment ? 'Processando...' : paymentMethod === 'pix' ? 'Gerar Pix →' : 'Pagar com cartão →'}
                 </button>
               </div>

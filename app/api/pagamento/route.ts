@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { criarPagamentoPix, criarPreferencia } from '@/lib/mercadopago'
+import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { customer, cartItems, shipping, paymentMethod, total } = body
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
 
-    const [firstName, ...rest] = (customer.name as string).trim().split(' ')
-    const lastName = rest.join(' ') || firstName
-
-    const itemsInfo = cartItems.map((i: any) => ({
-      id: String(i.id),
-      name: i.name,
-      qty: i.qty,
-      price: i.price,
-    }))
-
+    // ─── Cartão de crédito via Stripe Checkout ───────────────────────────────
     if (paymentMethod === 'credit_card') {
       const order = await prisma.order.create({
         data: {
@@ -29,65 +21,70 @@ export async function POST(req: NextRequest) {
           address: shipping.address.line_1,
           city: shipping.address.city,
           state: shipping.address.state,
-          pagarmeId: 'checkout_pro_pending',
+          pagarmeId: 'stripe_pending',
           items: {
             create: cartItems.map((item: any) => ({
               quantity: item.qty,
               price: item.price,
               productId: String(item.id),
-            }))
-          }
-        }
+            })),
+          },
+        },
       })
 
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
-      const preference = await criarPreferencia({
-        items: itemsInfo,
-        payer: { email: customer.email, firstName, lastName, cpf: customer.document, phone: customer.phone },
-        externalReference: order.id,
-        baseUrl,
-        notificationUrl: `${baseUrl}/api/pagamento/webhook`,
-      })
+      const lineItems: any[] = cartItems.map((item: any) => ({
+        price_data: {
+          currency: 'brl',
+          product_data: { name: item.name },
+          unit_amount: Math.round(item.price * 100),
+        },
+        quantity: item.qty,
+      }))
 
-      if (preference.error || !preference.init_point) {
-        await prisma.order.delete({ where: { id: order.id } })
-        return NextResponse.json({ error: preference.message ?? 'Erro ao criar preferência' }, { status: 400 })
+      if (shipping.price > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'brl',
+            product_data: { name: shipping.method ?? 'Frete' },
+            unit_amount: Math.round(shipping.price * 100),
+          },
+          quantity: 1,
+        })
       }
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'payment',
+        customer_email: customer.email,
+        line_items: lineItems,
+        success_url: `${baseUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/checkout/cancelado`,
+        metadata: { orderId: order.id },
+        payment_intent_data: {
+          metadata: { orderId: order.id },
+        },
+      })
 
       await prisma.order.update({
         where: { id: order.id },
-        data: { pagarmeId: preference.id },
+        data: { pagarmeId: session.id },
       })
 
-      return NextResponse.json({ checkoutUrl: preference.init_point })
+      return NextResponse.json({ checkoutUrl: session.url })
     }
 
-    // PIX
-    const description = cartItems.map((i: any) => i.name).join(', ').slice(0, 100)
-    const addressInfo = shipping?.address ? {
-      zipCode: shipping.address.zip_code ?? '',
-      street: shipping.address.line_1 ?? '',
-      number: '',
-      city: shipping.address.city ?? '',
-      state: shipping.address.state ?? '',
-    } : undefined
-
-    const mpPayment = await criarPagamentoPix({
-      amount: total,
-      email: customer.email,
-      firstName,
-      lastName,
-      cpf: customer.document,
-      phone: customer.phone,
-      description,
-      items: itemsInfo,
-      address: addressInfo,
+    // ─── Pix via Stripe Payment Intent ───────────────────────────────────────
+    const intent = await stripe.paymentIntents.create({
+      amount: Math.round(total * 100),
+      currency: 'brl',
+      payment_method_types: ['pix'],
+      confirm: true,
+      payment_method_data: { type: 'pix' },
+      return_url: `${baseUrl}/checkout/sucesso`,
+      payment_method_options: {
+        pix: { expires_after_seconds: 3600 },
+      },
     })
-
-    if (mpPayment.error || mpPayment.status === 'rejected') {
-      const detail = mpPayment.status_detail ?? mpPayment.cause?.[0]?.description ?? mpPayment.message ?? 'Pagamento recusado'
-      return NextResponse.json({ error: detail }, { status: 400 })
-    }
 
     const order = await prisma.order.create({
       data: {
@@ -100,28 +97,33 @@ export async function POST(req: NextRequest) {
         address: shipping.address.line_1,
         city: shipping.address.city,
         state: shipping.address.state,
-        pagarmeId: String(mpPayment.id),
+        pagarmeId: intent.id,
         items: {
           create: cartItems.map((item: any) => ({
             quantity: item.qty,
             price: item.price,
             productId: String(item.id),
-          }))
-        }
-      }
+          })),
+        },
+      },
     })
 
-    const pixData = mpPayment.point_of_interaction?.transaction_data
+    const pixAction = (intent as any).next_action?.pix_display_qr_code
 
     return NextResponse.json({
       orderId: order.id,
-      pix: pixData ? {
-        qrCode: pixData.qr_code,
-        qrCodeUrl: `data:image/png;base64,${pixData.qr_code_base64}`,
-      } : null,
+      pix: pixAction
+        ? {
+            qrCode: pixAction.data,
+            qrCodeUrl: pixAction.image_url_png,
+          }
+        : null,
     })
-  } catch (error) {
-    console.error('Erro no pagamento:', error)
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Erro no pagamento Stripe:', error)
+    return NextResponse.json(
+      { error: error?.message ?? 'Erro interno ao processar pagamento' },
+      { status: 500 }
+    )
   }
 }

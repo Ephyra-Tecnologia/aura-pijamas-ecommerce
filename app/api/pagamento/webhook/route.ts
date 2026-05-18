@@ -1,64 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
-import { buscarPagamento } from '@/lib/mercadopago'
-import { createHmac } from 'crypto'
 
-function validarAssinatura(req: NextRequest, rawBody: string): boolean {
-  const secret = process.env.MP_WEBHOOK_SECRET
-  if (!secret) return true
-
-  const xSignature = req.headers.get('x-signature') ?? ''
-  const xRequestId = req.headers.get('x-request-id') ?? ''
-  const dataId = new URL(req.url).searchParams.get('data.id') ?? ''
-
-  const parts = Object.fromEntries(xSignature.split(',').map(p => p.split('=')))
-  const ts = parts['ts']
-  const v1 = parts['v1']
-  if (!ts || !v1) return false
-
-  const template = `id:${dataId};request-id:${xRequestId};ts:${ts};`
-  const hash = createHmac('sha256', secret).update(template).digest('hex')
-
-  return hash === v1
-}
+export const config = { api: { bodyParser: false } }
 
 export async function POST(req: NextRequest) {
+  const rawBody = await req.text()
+  const sig = req.headers.get('stripe-signature') ?? ''
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET não configurado')
+    return NextResponse.json({ error: 'Webhook não configurado' }, { status: 500 })
+  }
+
+  let event: any
   try {
-    const rawBody = await req.text()
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret)
+  } catch (err: any) {
+    console.error('Webhook assinatura inválida:', err.message)
+    return NextResponse.json({ error: 'Assinatura inválida' }, { status: 400 })
+  }
 
-    if (!validarAssinatura(req, rawBody)) {
-      return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
-    }
+  console.log('STRIPE WEBHOOK:', event.type)
 
-    const body = JSON.parse(rawBody)
-    console.log('MP WEBHOOK:', JSON.stringify(body, null, 2))
-
-    const { type, action, data } = body
-
-    if ((action === 'payment.updated' || type === 'payment') && data?.id) {
-      const payment = await buscarPagamento(String(data.id))
-      console.log('MP PAYMENT STATUS:', payment.status, payment.id)
-
-      const whereClause = payment.external_reference
-        ? { OR: [{ pagarmeId: String(data.id) }, { id: payment.external_reference }] }
-        : { pagarmeId: String(data.id) }
-
-      if (payment.status === 'approved') {
-        await prisma.order.updateMany({
-          where: whereClause,
-          data: { status: 'PAID', pagarmeId: String(data.id) }
+  try {
+    // ── Cartão: sessão de checkout concluída ──────────────────────────────
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object
+      const orderId = session.metadata?.orderId
+      if (orderId && session.payment_status === 'paid') {
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'PAID' },
         })
-      } else if (payment.status === 'cancelled' || payment.status === 'refunded') {
-        await prisma.order.updateMany({
-          where: whereClause,
-          data: { status: 'CANCELLED' }
-        })
+        console.log('Pedido PAGO (checkout):', orderId)
       }
     }
 
-    return NextResponse.json({ ok: true })
-  } catch (error) {
-    console.error('Erro no webhook MP:', error)
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+    // ── Pix: payment intent aprovado ─────────────────────────────────────
+    if (event.type === 'payment_intent.succeeded') {
+      const intent = event.data.object
+      const orderId = intent.metadata?.orderId
+      if (orderId) {
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'PAID' },
+        })
+      } else {
+        // fallback: busca pelo pagarmeId
+        await prisma.order.updateMany({
+          where: { pagarmeId: intent.id },
+          data: { status: 'PAID' },
+        })
+      }
+      console.log('Pedido PAGO (pix):', intent.id)
+    }
+
+    // ── Pagamento falhou / cancelado ──────────────────────────────────────
+    if (
+      event.type === 'payment_intent.payment_failed' ||
+      event.type === 'checkout.session.expired'
+    ) {
+      const obj = event.data.object
+      const orderId = obj.metadata?.orderId
+      if (orderId) {
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'CANCELLED' },
+        })
+      } else {
+        await prisma.order.updateMany({
+          where: { pagarmeId: obj.id },
+          data: { status: 'CANCELLED' },
+        })
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao processar webhook Stripe:', err)
   }
+
+  return NextResponse.json({ received: true })
 }
