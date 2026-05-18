@@ -108,12 +108,12 @@ export async function GET(req: NextRequest) {
   // Busca todos os dados em paralelo
   const [orders, prevOrders, allProducts, pendingOrders] = await Promise.all([
     prisma.order.findMany({
-      where: { createdAt: { gte: start, lte: end }, status: { in: ['PAID', 'PENDING', 'PROCESSING'] } },
+      where: { createdAt: { gte: start, lte: end }, status: { in: ['PAID', 'PENDING', 'PREPARING', 'SHIPPED', 'DELIVERED'] } },
       include: { items: { include: { product: { select: { name: true, images: true } } } } },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.order.findMany({
-      where: { createdAt: { gte: prevStart, lte: prevEnd }, status: { in: ['PAID', 'PENDING', 'PROCESSING'] } },
+      where: { createdAt: { gte: prevStart, lte: prevEnd }, status: { in: ['PAID', 'PENDING', 'PREPARING', 'SHIPPED', 'DELIVERED'] } },
       select: { total: true },
     }),
     prisma.product.findMany({
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  const paidOrders = orders.filter(o => o.status === 'PAID')
+  const paidOrders = orders.filter(o => ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED'].includes(o.status))
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const faturamento = paidOrders.reduce((s, o) => s + o.total, 0)
