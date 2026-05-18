@@ -64,6 +64,11 @@ export async function POST(req: NextRequest) {
         cancel_url: `${baseUrl}/checkout/cancelado`,
         metadata: { orderId: order.id },
         payment_intent_data: { metadata: { orderId: order.id } },
+        payment_method_options: {
+          card: {
+            installments: { enabled: true },
+          },
+        },
       })
 
       await prisma.order.update({
