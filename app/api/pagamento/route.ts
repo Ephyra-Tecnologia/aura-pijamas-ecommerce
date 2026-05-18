@@ -9,14 +9,29 @@ export async function POST(req: NextRequest) {
     const { customer, cartItems, shipping, paymentMethod, total, parcelas = 1 } = body
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
 
-    // ─── Cartão de crédito via Stripe Payment Intent (checkout transparente) ──
+    // ─── Cartão de crédito via Stripe Checkout ───────────────────────────────
     if (paymentMethod === 'credit_card') {
       const stripe = getStripe()
+      const SEM_JUROS = 3
+      const TAXA_MENSAL = 0.0299
+
+      // Calcula juros se necessário
+      let totalComJuros = total
+      let valorParcela = total / parcelas
+      let juros = 0
+      if (parcelas > SEM_JUROS) {
+        const r = TAXA_MENSAL
+        const n = parcelas
+        const pmt = total * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1)
+        valorParcela = pmt
+        totalComJuros = pmt * n
+        juros = totalComJuros - total
+      }
 
       const order = await prisma.order.create({
         data: {
           status: 'PENDING',
-          total,
+          total: totalComJuros, // salva o total real cobrado
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
@@ -35,33 +50,63 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(total * 100),
-        currency: 'brl',
-        receipt_email: customer.email,
-        metadata: { orderId: order.id, parcelas: String(parcelas) },
-        ...(parcelas > 1 && {
-          payment_method_options: {
-            card: {
-              installments: {
-                enabled: true,
-                plan: { count: parcelas, interval: 'month', type: 'fixed_count' },
-              },
-            },
+      // Line items: produtos + frete + juros (se houver)
+      const lineItems: any[] = cartItems.map((item: any) => ({
+        price_data: {
+          currency: 'brl',
+          product_data: { name: item.name },
+          unit_amount: Math.round(item.price * 100),
+        },
+        quantity: item.qty,
+      }))
+
+      if (shipping.price > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'brl',
+            product_data: { name: shipping.method ?? 'Frete' },
+            unit_amount: Math.round(shipping.price * 100),
           },
-        }),
+          quantity: 1,
+        })
+      }
+
+      if (juros > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'brl',
+            product_data: {
+              name: `Juros de parcelamento (${parcelas}x · ${(TAXA_MENSAL * 100).toFixed(2).replace('.', ',')}%/mês)`,
+            },
+            unit_amount: Math.round(juros * 100),
+          },
+          quantity: 1,
+        })
+      }
+
+      // Texto de parcelamento visível na tela do Stripe
+      const parcelaLabel = `${parcelas}x de R$ ${valorParcela.toFixed(2).replace('.', ',')}${parcelas <= SEM_JUROS ? ' sem juros' : ` com juros de ${(TAXA_MENSAL * 100).toFixed(2).replace('.', ',')}%/mês`}`
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'payment',
+        customer_email: customer.email,
+        line_items: lineItems,
+        success_url: `${baseUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/checkout/cancelado`,
+        metadata: { orderId: order.id, parcelas: String(parcelas) },
+        payment_intent_data: { metadata: { orderId: order.id, parcelas: String(parcelas) } },
+        custom_text: {
+          submit: { message: `Parcelado em ${parcelaLabel}` },
+        },
       })
 
       await prisma.order.update({
         where: { id: order.id },
-        data: { pagarmeId: paymentIntent.id },
+        data: { pagarmeId: session.id },
       })
 
-      return NextResponse.json({
-        clientSecret: paymentIntent.client_secret,
-        orderId: order.id,
-        paymentIntentId: paymentIntent.id,
-      })
+      return NextResponse.json({ checkoutUrl: session.url })
     }
 
     // ─── Pix via MercadoPago ──────────────────────────────────────────────────
