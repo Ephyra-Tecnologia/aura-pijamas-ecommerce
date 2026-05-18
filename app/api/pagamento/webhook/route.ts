@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
-
-export const config = { api: { bodyParser: false } }
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
@@ -16,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   let event: any
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret)
+    event = getStripe().webhooks.constructEvent(rawBody, sig, webhookSecret)
   } catch (err: any) {
     console.error('Webhook assinatura inválida:', err.message)
     return NextResponse.json({ error: 'Assinatura inválida' }, { status: 400 })
@@ -48,7 +46,6 @@ export async function POST(req: NextRequest) {
           data: { status: 'PAID' },
         })
       } else {
-        // fallback: busca pelo pagarmeId
         await prisma.order.updateMany({
           where: { pagarmeId: intent.id },
           data: { status: 'PAID' },

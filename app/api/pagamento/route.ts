@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest) {
@@ -7,6 +7,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { customer, cartItems, shipping, paymentMethod, total } = body
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
+    const stripe = getStripe()
 
     // ─── Cartão de crédito via Stripe Checkout ───────────────────────────────
     if (paymentMethod === 'credit_card') {
