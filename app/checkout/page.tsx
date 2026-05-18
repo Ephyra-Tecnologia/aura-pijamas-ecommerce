@@ -154,7 +154,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: { name: form.name, email: form.email, phone: form.phone },
+          customer: { name: form.name, email: form.email, phone: form.phone, document: documento },
           shipping: {
             method: selectedFrete?.name,
             price: selectedFrete?.price || 0,

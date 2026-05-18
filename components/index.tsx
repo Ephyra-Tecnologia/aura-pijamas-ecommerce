@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCartStore, useUIStore } from '@/store/cart'
 import Image from 'next/image'
 
@@ -262,6 +262,8 @@ export function ProductModal() {
   const addItem = useCartStore(s => s.addItem)
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState(0)
+  const [currentImg, setCurrentImg] = useState(0)
+  const touchStartX = useRef(0)
 
   useEffect(() => {
     if (modalProduct) {
@@ -269,6 +271,7 @@ export function ProductModal() {
       const firstAvailable = sizes.find(s => s.quantity > 0)
       setSelectedSize(firstAvailable?.size ?? (sizes[0]?.size ?? ''))
       setSelectedColor(0)
+      setCurrentImg(0)
     }
   }, [modalProduct])
 
@@ -277,12 +280,24 @@ export function ProductModal() {
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
   const sizes = modalProduct.sizes ?? []
   const hasSizes = sizes.length > 0
+  const images = modalProduct.images?.length ? modalProduct.images : []
   const categoryDisplay = modalProduct.categories?.map(c => c.name).join(' · ')
     || (typeof modalProduct.category === 'string' ? modalProduct.category : modalProduct.category?.name)
     || ''
 
   const selectedSizeEntry = sizes.find(s => s.size === selectedSize)
   const outOfStock = hasSizes && selectedSizeEntry?.quantity === 0
+
+  const prevImg = () => setCurrentImg(i => (i - 1 + images.length) % images.length)
+  const nextImg = () => setCurrentImg(i => (i + 1) % images.length)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 40) diff > 0 ? nextImg() : prevImg()
+  }
 
   const handleAdd = () => {
     if (outOfStock) return
@@ -294,15 +309,60 @@ export function ProductModal() {
   return (
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
       <div className="modal" style={{ position: 'relative' }}>
-        <div className="modal-img" style={{ position: 'relative' }}>
-          {modalProduct.images?.[0] ? (
-            <Image src={modalProduct.images[0]} alt={modalProduct.name} fill style={{ objectFit: 'cover', objectPosition: 'center top' }} />
-          ) : (
-            <div className="modal-img-inner">
-              <em style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--stone)' }}>{modalProduct.name}</em>
+
+        {/* ── Galeria de imagens ───────────────────────────────────────── */}
+        <div className="modal-gallery">
+          {/* Imagem principal com swipe e setas */}
+          <div className="modal-img"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            {images.length > 0 ? (
+              <>
+                <Image
+                  src={images[currentImg]}
+                  alt={modalProduct.name}
+                  fill
+                  style={{ objectFit: 'cover', objectPosition: 'center top' }}
+                />
+
+                {/* Setas */}
+                {images.length > 1 && (
+                  <>
+                    <button onClick={prevImg} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
+                    <button onClick={nextImg} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
+                  </>
+                )}
+
+                {/* Pontos — visíveis só no mobile */}
+                {images.length > 1 && (
+                  <div className="modal-dots">
+                    {images.map((_, i) => (
+                      <button key={i} onClick={() => setCurrentImg(i)} style={{ width: i === currentImg ? 18 : 6, height: 6, borderRadius: 3, background: i === currentImg ? 'white' : 'rgba(255,255,255,0.5)', border: 'none', cursor: 'pointer', padding: 0, transition: 'width 0.2s' }} />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="modal-img-inner">
+                <em style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--stone)' }}>{modalProduct.name}</em>
+              </div>
+            )}
+          </div>
+
+          {/* Miniaturas — visíveis só no desktop */}
+          {images.length > 1 && (
+            <div className="modal-thumbs">
+              {images.map((img, i) => (
+                <button key={i} onClick={() => setCurrentImg(i)} style={{ width: 52, height: 68, flexShrink: 0, position: 'relative', overflow: 'hidden', border: `2px solid ${i === currentImg ? 'var(--dark)' : 'transparent'}`, padding: 0, cursor: 'pointer', background: 'var(--sand)' }}>
+                  <Image src={img} alt="" fill style={{ objectFit: 'cover', objectPosition: 'center top' }} />
+                </button>
+              ))}
             </div>
           )}
         </div>
+
+        {/* ── Painel de informações ────────────────────────────────────── */}
         <div className="modal-content">
           <button className="modal-close" onClick={closeModal} style={{ position: 'absolute', top: 16, right: 16 }}>✕</button>
           <p className="modal-category">{categoryDisplay}</p>
