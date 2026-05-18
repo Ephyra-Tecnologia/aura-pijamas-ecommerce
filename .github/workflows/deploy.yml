@@ -20,9 +20,13 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          MP_ACCESS_TOKEN: ${{ secrets.MP_ACCESS_TOKEN }}
+          MP_WEBHOOK_SECRET: ${{ secrets.MP_WEBHOOK_SECRET }}
         run: |
           echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}" > .env.local
           echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}" >> .env.local
+          echo "MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN}" >> .env.local
+          echo "MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}" >> .env.local
           echo "NEXT_PUBLIC_BASE_URL=https://aurapijamas.com.br" >> .env.local
           gcloud compute scp .env.local root@srv-qa-cvlt:/root/aura-pijamas-ecommerce/.env.local \
             --zone=southamerica-east1-a \
