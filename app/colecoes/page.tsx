@@ -5,12 +5,19 @@ import Image from 'next/image'
 import { useUIStore, Product } from '@/store/cart'
 import { Footer } from '@/components/index'
 
+// Remove acentos, troca hífens por espaços e coloca em minúsculas
+// Ex: "Lançamento" → "lancamento" | "malha-fria" → "malha fria"
+const normalize = (s: string) =>
+  s.normalize('NFD')
+   .replace(/[̀-ͯ]/g, '')
+   .replace(/-/g, ' ')
+   .toLowerCase()
+
 function ColecoesContent() {
   const openModal = useUIStore(s => s.openModal)
   const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const normalize = (s: string) => s.replace(/-/g, ' ').toLowerCase()
   const [filter, setFilter] = useState(normalize(searchParams.get('categoria') || 'todos'))
 
   useEffect(() => {
@@ -43,7 +50,7 @@ function ColecoesContent() {
     ? products.filter(p => p.active !== false)
     : products.filter(p =>
         p.active !== false &&
-        getProductCategoryNames(p).some(name => name.toLowerCase() === filter.toLowerCase())
+        getProductCategoryNames(p).some(name => normalize(name) === filter)
       )
 
   return (
@@ -52,11 +59,11 @@ function ColecoesContent() {
         {categories.map(cat => (
           <button
             key={cat}
-            onClick={() => setFilter(cat.toLowerCase())}
+            onClick={() => setFilter(normalize(cat))}
             style={{
-              background: filter.toLowerCase() === cat.toLowerCase() ? 'var(--dark)' : 'transparent',
-              color: filter.toLowerCase() === cat.toLowerCase() ? 'var(--cream)' : 'var(--stone)',
-              border: `1px solid ${filter.toLowerCase() === cat.toLowerCase() ? 'var(--dark)' : 'var(--sand)'}`,
+              background: filter === normalize(cat) ? 'var(--dark)' : 'transparent',
+              color: filter === normalize(cat) ? 'var(--cream)' : 'var(--stone)',
+              border: `1px solid ${filter === normalize(cat) ? 'var(--dark)' : 'var(--sand)'}`,
               padding: '8px 20px',
               fontSize: 11,
               letterSpacing: '0.12em',
