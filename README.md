@@ -1,8 +1,8 @@
 # 🌙 Aura Pijamas — E-commerce
 
-> Loja de pijamas artesanal construída do zero com Next.js, PostgreSQL e deploy em GCP.
+> Loja de pijamas construída do zero com Next.js, PostgreSQL e deploy em GCP.
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-B8956A?style=flat-square)
+![Status](https://img.shields.io/badge/status-em%20produção-4CAF50?style=flat-square)
 ![Next.js](https://img.shields.io/badge/Next.js-16.2-black?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql)
@@ -12,13 +12,19 @@
 
 ## ✨ Features
 
-- **Loja completa** — catálogo, modal de produto, carrinho com persistência
-- **Checkout** — formulário em 3 etapas com busca de CEP via ViaCEP
-- **Pagamentos** — integração com Pagar.me (Pix, cartão, boleto)
-- **Frete** — cálculo via Melhor Envio API
-- **Admin** — painel de gestão de produtos, pedidos e banners
+- **Loja completa** — catálogo com filtro por categoria, modal de produto com galeria de imagens (swipe mobile), carrinho com persistência
+- **Checkout responsivo** — formulário em 3 etapas, busca de CEP via ViaCEP, cálculo de frete
+- **Pagamentos híbridos** — Pix via MercadoPago + Cartão via Stripe (Checkout hospedado)
+- **Galeria de imagens** — swipe no mobile, miniaturas no desktop
+- **Tabela de medidas** — embutida no modal de produto
+- **Admin completo** — CRUD de produtos, pedidos, categorias, banners e configurações
+- **Ordenação de produtos** — arrasta ou usa setas ↑↓ no painel admin
+- **Múltiplas categorias** — relação many-to-many, nav dinâmico gerado a partir das categorias
 - **Upload de imagens** — Google Cloud Storage
-- **Deploy automatizado** — GitHub Actions via IAP Tunnel
+- **Botão WhatsApp flutuante** — com mensagem pré-preenchida
+- **Páginas de conteúdo** — A Aura, Trocas e Devoluções, Cuidados com as Peças
+- **Fontes customizadas** — Eyesome (display) + Cormorant Garamond + Jost
+- **Deploy automatizado** — GitHub Actions via IAP Tunnel para GCP
 
 ---
 
@@ -34,9 +40,8 @@
 | Autenticação | NextAuth.js v5 |
 | Estado global | Zustand |
 | Storage | Google Cloud Storage |
-| Pagamento | Pagar.me |
-| Frete | Melhor Envio |
-| E-mail | Resend |
+| Pagamento (Pix) | MercadoPago |
+| Pagamento (Cartão) | Stripe Checkout |
 | Servidor | GCP VM (Ubuntu 22.04) |
 | Proxy | Caddy (SSL automático) |
 | Process manager | PM2 |
@@ -77,21 +82,12 @@ pm2 restart aura-pijamas
 ### Instalação
 
 ```bash
-# Clone o repositório
 git clone git@github.com:heyconche/aura-pijamas-ecommerce.git
 cd aura-pijamas-ecommerce
-
-# Instale as dependências
 npm install
-
-# Configure as variáveis de ambiente
 cp .env.example .env
 # Edite o .env com suas credenciais
-
-# Rode as migrations
 npx prisma migrate dev
-
-# Inicie o servidor de desenvolvimento
 npm run dev
 ```
 
@@ -102,26 +98,26 @@ npm run dev
 DATABASE_URL="postgresql://user:password@localhost:5432/ecommerce_db"
 
 # Auth
-AUTH_SECRET="seu_secret_aqui"
-AUTH_TRUST_HOST=true
-NEXTAUTH_URL="http://localhost:3000"
-
-# Admin
+BETTER_AUTH_SECRET="seu_secret_aqui"
 ADMIN_EMAIL="admin@aurapijamas.com.br"
 ADMIN_PASSWORD="sua_senha_aqui"
 
 # Google Cloud Storage
 GCS_BUCKET_NAME="nome-do-bucket"
 GCS_PROJECT_ID="seu-projeto"
-GCS_KEY_FILE="/caminho/para/credentials.json"
+GCS_CLIENT_EMAIL="sa@projeto.iam.gserviceaccount.com"
+GCS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 
-# Pagar.me
-PAGARME_SECRET_KEY="sk_test_..."
-PAGARME_PUBLIC_KEY="pk_test_..."
+# Stripe (cartão de crédito)
+STRIPE_SECRET_KEY="sk_live_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
 
-# Resend
-RESEND_API_KEY="re_..."
-EMAIL_FROM="contato@aurapijamas.com.br"
+# MercadoPago (Pix)
+MP_ACCESS_TOKEN="APP_USR-..."
+MP_WEBHOOK_SECRET="seu_webhook_secret"
+
+# URL pública
+NEXT_PUBLIC_BASE_URL="https://aurapijamas.com.br"
 ```
 
 ---
@@ -131,25 +127,31 @@ EMAIL_FROM="contato@aurapijamas.com.br"
 ```
 aura-pijamas-ecommerce/
 ├── app/
-│   ├── (loja)/              # Páginas públicas
-│   │   ├── page.tsx         # Home
-│   │   ├── colecoes/        # Catálogo
-│   │   └── checkout/        # Checkout
+│   ├── page.tsx             # Home
+│   ├── colecoes/            # Catálogo com filtro por categoria
+│   ├── checkout/            # Checkout em 3 etapas + Pix + Stripe
+│   │   ├── sucesso/         # Pós-pagamento aprovado
+│   │   ├── pendente/        # Pós-pagamento pendente
+│   │   └── cancelado/       # Pós-pagamento cancelado
+│   ├── a-aura/              # Sobre a marca
+│   ├── trocas-devolucoes/   # Política de trocas
+│   ├── cuidados/            # Cuidados com as peças
 │   ├── admin/               # Painel administrativo
-│   │   ├── page.tsx         # Dashboard
-│   │   ├── produtos/        # CRUD de produtos
-│   │   └── pedidos/         # Gestão de pedidos
+│   │   ├── produtos/        # CRUD + ordenação
+│   │   ├── pedidos/         # Gestão de pedidos
+│   │   ├── categorias/      # CRUD de categorias
+│   │   └── configuracoes/   # Banners e textos
 │   └── api/                 # API Routes
-│       ├── auth/            # NextAuth
-│       ├── produtos/        # CRUD produtos
+│       ├── produtos/        # CRUD + reorder
 │       ├── pedidos/         # CRUD pedidos
+│       ├── categorias/      # CRUD categorias
 │       ├── upload/          # Upload GCS
-│       └── pagamento/       # Webhook Pagar.me
-├── components/              # Componentes React
-├── lib/                     # Utilitários (Prisma, Storage)
+│       └── pagamento/       # Stripe + MercadoPago + Webhooks
+├── components/              # Header, Footer, ProductModal, CartDrawer, WhatsAppButton...
+├── lib/                     # Prisma, Stripe, MercadoPago, Storage
 ├── store/                   # Estado global (Zustand)
-├── prisma/                  # Schema e migrations
-└── public/                  # Assets estáticos
+├── prisma/                  # Schema
+└── public/                  # Assets, fontes (Eyesome)
 ```
 
 ---
@@ -163,7 +165,7 @@ GCP VM e2-small (Ubuntu 22.04)
     ├── Caddy (reverse proxy + SSL)
     ├── Next.js via PM2 (:3000)
     └── PostgreSQL 16
-    
+
 GCP Cloud NAT (saída para internet)
 GCP Cloud Storage (imagens dos produtos)
 ```
@@ -179,11 +181,8 @@ pm2 logs aura-pijamas
 # Status dos processos
 pm2 status
 
-# Reiniciar aplicação
+# Reiniciar com novas env vars
 pm2 restart aura-pijamas --update-env
-
-# Migrations em produção
-npx prisma migrate deploy
 
 # Abrir Prisma Studio
 npx prisma studio
@@ -193,12 +192,12 @@ npx prisma studio
 
 ## 🌙 Sobre o projeto
 
-A **Aura Pijamas** é uma loja de pijamas artesanal focada em conforto e presença. Este e-commerce foi construído do zero por um especialista em infraestrutura se aventurando no desenvolvimento web.
+A **Aura Pijamas** é uma loja de pijamas focada em conforto e presença. Este e-commerce foi construído do zero com controle total sobre cada detalhe.
 
-- **Controle total** — sem dependência de plataformas de e-commerce
+- **Sem plataformas de e-commerce** — código 100% próprio
 - **Custo mínimo** — ~R$25/mês de infraestrutura fixa
 - **Design próprio** — identidade visual única, não um template
-- **Escalabilidade** — stack moderna, fácil de evoluir
+- **Stack moderna** — fácil de evoluir e manter
 
 ---
 
