@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Header from '@/components/Header'
-import { CartDrawer, ProductModal, Toast } from '@/components/index'
+import { CartDrawer, ProductModal, Toast, WhatsAppButton } from '@/components/index'
 
 export const metadata: Metadata = {
   title: 'Aura Pijamas',
@@ -17,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartDrawer />
         <ProductModal />
         <Toast />
+        <WhatsAppButton phone="11972893178" />
       </body>
     </html>
   )
