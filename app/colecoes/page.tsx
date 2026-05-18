@@ -10,11 +10,12 @@ function ColecoesContent() {
   const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState(searchParams.get('categoria') || 'todos')
+  const normalize = (s: string) => s.replace(/-/g, ' ').toLowerCase()
+  const [filter, setFilter] = useState(normalize(searchParams.get('categoria') || 'todos'))
 
   useEffect(() => {
     const cat = searchParams.get('categoria')
-    setFilter(cat || 'todos')
+    setFilter(cat ? normalize(cat) : 'todos')
   }, [searchParams])
 
   useEffect(() => {
