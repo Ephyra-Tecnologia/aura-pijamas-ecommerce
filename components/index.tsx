@@ -126,14 +126,15 @@ export function Newsletter() {
 }
 
 export function Footer() {
+  const ephyraMsg = encodeURIComponent('Olá! Vi o seu trabalho no site da Aura Pijamas e gostaria de tirar uma dúvida.')
+  const ephyraUrl = `https://wa.me/5511945044242?text=${ephyraMsg}`
   return (
     <footer>
-      <div className="footer-grid">
-        <div>
+      <div className="footer-grid footer-grid-centered">
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
           <Link href="/" style={{ display: 'inline-block' }}>
             <Image src="/assets/aura-footer.png" alt="Aura Pijamas" height={52} width={180} style={{ objectFit: 'contain' }} />
           </Link>
-          <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--stone)', marginTop: 16, maxWidth: 240 }}>Aura Pijamas, feito para sonhar.</p>
         </div>
         <div className="footer-col">
           <h4>Loja</h4>
@@ -151,13 +152,16 @@ export function Footer() {
           <Link href="#">Contato</Link>
         </div>
       </div>
-      <div className="footer-bottom">
-        <span>© 2025 Aura Pijamas. Todos os direitos reservados.</span>
-        <div style={{ display: 'flex', gap: 20 }}>
+      <div className="footer-bottom" style={{ flexDirection: 'column', gap: 6, textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <span>© 2026 Aura Pijamas. Todos os direitos reservados.</span>
           <Link href="#">Privacidade</Link>
           <Link href="#">Termos</Link>
           <Link href="/admin" style={{ color: 'rgba(196,181,165,0.3)' }}>Admin</Link>
         </div>
+        <a href={ephyraUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'rgba(196,181,165,0.45)', textDecoration: 'none', letterSpacing: '0.05em' }}>
+          Produzido e gerenciado por: Ephyra Tecnologia
+        </a>
       </div>
     </footer>
   )
