@@ -136,6 +136,7 @@ export default function CheckoutPage() {
   const [processingPayment, setProcessingPayment] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [parcelas, setParcelas] = useState(1)
 
   const [form, setForm] = useState<FormData>({
     name: '', email: '', phone: '',
@@ -186,6 +187,7 @@ export default function CheckoutPage() {
           cartItems: items,
           total: totalFinal,
           paymentMethod,
+          parcelas: paymentMethod === 'credit_card' ? parcelas : 1,
         }),
       })
       const data = await res.json()
@@ -380,11 +382,64 @@ export default function CheckoutPage() {
                     </div>
                   ))}
                 </div>
-                {paymentMethod === 'credit_card' && (
-                  <p style={{ fontSize: 12, color: 'var(--stone)', marginTop: 14, lineHeight: 1.7 }}>
-                    Você será redirecionado para o Stripe. Aceitamos Visa, Mastercard, Elo, Hipercard e Amex.
-                  </p>
-                )}
+                {paymentMethod === 'credit_card' && (() => {
+                  const SEM_JUROS = 3 // até 3x sem juros
+                  const MAX = 12
+                  const minParcela = 10
+                  const maxParcelas = Math.min(MAX, Math.floor(totalFinal / minParcela))
+                  const options = Array.from({ length: Math.max(maxParcelas, 1) }, (_, i) => i + 1)
+                  const valorParcela = totalFinal / parcelas
+
+                  return (
+                    <div style={{ marginTop: 18 }}>
+                      <p style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 12 }}>
+                        Parcelamento
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                        {options.map(n => {
+                          const val = totalFinal / n
+                          const semJuros = n <= SEM_JUROS
+                          const ativo = parcelas === n
+                          return (
+                            <div
+                              key={n}
+                              onClick={() => setParcelas(n)}
+                              style={{
+                                border: `1px solid ${ativo ? 'var(--dark)' : 'var(--sand)'}`,
+                                background: ativo ? 'var(--dark)' : 'white',
+                                padding: '10px 6px',
+                                cursor: 'pointer',
+                                textAlign: 'center',
+                              }}
+                            >
+                              <div style={{ fontSize: 13, fontFamily: 'var(--font-serif)', color: ativo ? 'var(--cream)' : 'var(--dark)', marginBottom: 2 }}>
+                                {n}x
+                              </div>
+                              <div style={{ fontSize: 10, color: ativo ? 'var(--sand)' : 'var(--earth)' }}>
+                                {fmt(val)}
+                              </div>
+                              <div style={{ fontSize: 9, color: ativo ? '#C4B5A5' : semJuros ? '#16a34a' : 'var(--stone)', marginTop: 2 }}>
+                                {semJuros ? 'sem juros' : 'c/ juros'}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--cream)', border: '1px solid var(--sand)', fontSize: 13 }}>
+                        <span style={{ color: 'var(--dark)', fontFamily: 'var(--font-serif)' }}>
+                          {parcelas}x de {fmt(valorParcela)}
+                        </span>
+                        {parcelas <= SEM_JUROS
+                          ? <span style={{ color: '#16a34a', fontSize: 11, marginLeft: 8 }}>sem juros</span>
+                          : <span style={{ color: 'var(--stone)', fontSize: 11, marginLeft: 8 }}>juros do cartão</span>
+                        }
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--stone)', marginTop: 10, lineHeight: 1.6 }}>
+                        Você será redirecionado para o Stripe. Visa, Mastercard, Elo, Amex.
+                      </p>
+                    </div>
+                  )
+                })()}
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
@@ -395,7 +450,13 @@ export default function CheckoutPage() {
                   onClick={handlePayment}
                   disabled={processingPayment}
                 >
-                  {processingPayment ? 'Processando...' : paymentMethod === 'pix' ? `Gerar Pix · ${fmt(totalFinal)}` : `Pagar · ${fmt(totalFinal)}`}
+                  {processingPayment
+                    ? 'Processando...'
+                    : paymentMethod === 'pix'
+                    ? `Gerar Pix · ${fmt(totalFinal)}`
+                    : parcelas > 1
+                    ? `Pagar · ${parcelas}x de ${fmt(totalFinal / parcelas)}`
+                    : `Pagar · ${fmt(totalFinal)}`}
                 </button>
               </div>
             </div>

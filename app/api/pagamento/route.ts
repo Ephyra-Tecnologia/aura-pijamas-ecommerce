@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { customer, cartItems, shipping, paymentMethod, total } = body
+    const { customer, cartItems, shipping, paymentMethod, total, parcelas = 1 } = body
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
 
     // ─── Cartão de crédito via Stripe Checkout ───────────────────────────────
@@ -62,13 +62,8 @@ export async function POST(req: NextRequest) {
         line_items: lineItems,
         success_url: `${baseUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/checkout/cancelado`,
-        metadata: { orderId: order.id },
-        payment_intent_data: { metadata: { orderId: order.id } },
-        payment_method_options: {
-          card: {
-            installments: { enabled: true },
-          },
-        },
+        metadata: { orderId: order.id, parcelas: String(parcelas) },
+        payment_intent_data: { metadata: { orderId: order.id, parcelas: String(parcelas) } },
       })
 
       await prisma.order.update({
