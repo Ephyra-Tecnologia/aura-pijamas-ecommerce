@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
-import { criarPagamentoPix } from '@/lib/mercadopago'
+import { criarPedidoPagarme } from '@/lib/pagarme'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest) {
@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
       const SEM_JUROS = 3
       const TAXA_MENSAL = 0.0299
 
-      // Calcula juros se necessário
       let totalComJuros = total
       let valorParcela = total / parcelas
       let juros = 0
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
       const order = await prisma.order.create({
         data: {
           status: 'PENDING',
-          total: totalComJuros, // salva o total real cobrado
+          total: totalComJuros,
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
@@ -50,7 +49,6 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Line items: produtos + frete + juros (se houver)
       const lineItems: any[] = cartItems.map((item: any) => ({
         price_data: {
           currency: 'brl',
@@ -84,7 +82,6 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Texto de parcelamento visível na tela do Stripe
       const parcelaLabel = `${parcelas}x de R$ ${valorParcela.toFixed(2).replace('.', ',')}${parcelas <= SEM_JUROS ? ' sem juros' : ` com juros de ${(TAXA_MENSAL * 100).toFixed(2).replace('.', ',')}%/mês`}`
 
       const session = await stripe.checkout.sessions.create({
@@ -109,59 +106,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ checkoutUrl: session.url })
     }
 
-    // ─── Pix via MercadoPago ──────────────────────────────────────────────────
-    const [firstName, ...rest] = (customer.name as string).trim().split(' ')
-    const lastName = rest.join(' ') || firstName
-    const description = cartItems.map((i: any) => i.name).join(', ').slice(0, 100)
-
-    const mpPayment = await criarPagamentoPix({
-      amount: total,
+    // ─── Pix via Pagar.me ─────────────────────────────────────────────────────
+    const pmResult = await criarPedidoPagarme({
+      name: customer.name,
       email: customer.email,
-      firstName,
-      lastName,
-      cpf: customer.document ?? '',
       phone: customer.phone,
-      description,
-      items: cartItems.map((i: any) => ({ id: String(i.id), name: i.name, qty: i.qty, price: i.price })),
-      address: shipping?.address ? {
-        zipCode: shipping.address.zip_code ?? '',
-        street: shipping.address.line_1 ?? '',
-        number: '',
-        city: shipping.address.city ?? '',
-        state: shipping.address.state ?? '',
-      } : undefined,
+      document: customer.document ?? '',
+      items: cartItems.map((item: any) => ({
+        name: item.name,
+        amount: Math.round(item.price * 100),
+        quantity: item.qty,
+      })),
+      shipping: {
+        amount: Math.round((shipping?.price || 0) * 100),
+        address: {
+          line_1: shipping.address.line_1 ?? '',
+          zip_code: (shipping.address.zip_code ?? '').replace(/\D/g, ''),
+          city: shipping.address.city ?? '',
+          state: shipping.address.state ?? '',
+          country: 'BR',
+        },
+      },
+      paymentMethod: 'pix',
     })
 
-    if (mpPayment.error || mpPayment.status === 'rejected') {
-      // Log completo para diagnóstico
-      const causeCode = mpPayment.cause?.[0]?.code
-      const causeDesc = mpPayment.cause?.[0]?.description
-      console.error('MP PIX ERRO:', JSON.stringify({
-        status: mpPayment.status,
-        status_detail: mpPayment.status_detail,
-        error: mpPayment.error,
-        message: mpPayment.message,
-        cause: mpPayment.cause,
-      }, null, 2))
-
-      // Mapeia erros do MP para mensagens claras em português
-      const MP_ERRORS: Record<string, string> = {
-        '2072': 'Não foi possível verificar a identidade financeira do pagador. Tente com outro e-mail ou entre em contato conosco.',
-        '2001': 'CPF inválido ou não encontrado. Verifique o número informado.',
-        '2067': 'E-mail inválido para pagamento Pix.',
-        '2073': 'Identidade do pagador não verificada. Confirme seus dados e tente novamente.',
-        'cc_rejected_bad_filled_security_code': 'Código de segurança do cartão incorreto.',
-        'cc_rejected_blacklist': 'Pagamento não autorizado. Entre em contato com seu banco.',
-        'cc_rejected_insufficient_amount': 'Saldo insuficiente.',
-      }
-
-      const userMsg = (causeCode && MP_ERRORS[String(causeCode)])
-        ?? MP_ERRORS[mpPayment.status_detail ?? '']
-        ?? causeDesc
-        ?? mpPayment.message
-        ?? 'Pagamento recusado. Tente novamente ou escolha outra forma de pagamento.'
-
-      return NextResponse.json({ error: userMsg }, { status: 400 })
+    // Pagar.me retorna erros com status != pending/waiting_payment
+    if (pmResult.status === 'failed' || pmResult.errors) {
+      const errMsg = pmResult.message ?? pmResult.errors?.[0]?.message ?? 'Erro ao gerar Pix. Verifique seus dados e tente novamente.'
+      console.error('PAGARME PIX ERRO:', JSON.stringify(pmResult, null, 2))
+      return NextResponse.json({ error: errMsg }, { status: 400 })
     }
 
     const order = await prisma.order.create({
@@ -175,7 +148,7 @@ export async function POST(req: NextRequest) {
         address: shipping.address.line_1,
         city: shipping.address.city,
         state: shipping.address.state,
-        pagarmeId: String(mpPayment.id),
+        pagarmeId: pmResult.id,
         items: {
           create: cartItems.map((item: any) => ({
             quantity: item.qty,
@@ -186,15 +159,17 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    const pixData = mpPayment.point_of_interaction?.transaction_data
+    // Extrai QR code do Pagar.me
+    const charge = pmResult.charges?.[0]
+    const lastTx = charge?.last_transaction
+    const qrCode = lastTx?.qr_code ?? null
+    const qrCodeUrl = lastTx?.qr_code_url ?? null
 
     return NextResponse.json({
       orderId: order.id,
-      pix: pixData ? {
-        qrCode: pixData.qr_code,
-        qrCodeUrl: `data:image/png;base64,${pixData.qr_code_base64}`,
-      } : null,
+      pix: qrCode ? { qrCode, qrCodeUrl } : null,
     })
+
   } catch (error: any) {
     console.error('Erro no pagamento:', error)
     return NextResponse.json({ error: error?.message ?? 'Erro interno' }, { status: 500 })
