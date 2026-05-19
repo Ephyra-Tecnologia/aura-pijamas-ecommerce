@@ -107,6 +107,11 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── Pix via Pagar.me ─────────────────────────────────────────────────────
+    if (!process.env.PAGARME_SECRET_KEY) {
+      console.error('PAGARME_SECRET_KEY não configurada')
+      return NextResponse.json({ error: 'Gateway de pagamento não configurado. Entre em contato conosco.' }, { status: 500 })
+    }
+
     const pmResult = await criarPedidoPagarme({
       name: customer.name,
       email: customer.email,
@@ -130,10 +135,11 @@ export async function POST(req: NextRequest) {
       paymentMethod: 'pix',
     })
 
-    // Pagar.me retorna erros com status != pending/waiting_payment
-    if (pmResult.status === 'failed' || pmResult.errors) {
-      const errMsg = pmResult.message ?? pmResult.errors?.[0]?.message ?? 'Erro ao gerar Pix. Verifique seus dados e tente novamente.'
+    // Detecta qualquer tipo de erro do Pagar.me (HTTP 4xx/5xx, campo errors, status failed, sem id)
+    const pmHasError = !pmResult.id || pmResult.status === 'failed' || pmResult.errors || pmResult.type === 'invalid_request_error'
+    if (pmHasError) {
       console.error('PAGARME PIX ERRO:', JSON.stringify(pmResult, null, 2))
+      const errMsg = pmResult.message ?? pmResult.errors?.[0]?.message ?? 'Erro ao gerar Pix. Verifique seus dados e tente novamente.'
       return NextResponse.json({ error: errMsg }, { status: 400 })
     }
 
