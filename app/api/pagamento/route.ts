@@ -133,8 +133,35 @@ export async function POST(req: NextRequest) {
     })
 
     if (mpPayment.error || mpPayment.status === 'rejected') {
-      const detail = mpPayment.status_detail ?? mpPayment.cause?.[0]?.description ?? mpPayment.message ?? 'Pagamento recusado'
-      return NextResponse.json({ error: detail }, { status: 400 })
+      // Log completo para diagnóstico
+      const causeCode = mpPayment.cause?.[0]?.code
+      const causeDesc = mpPayment.cause?.[0]?.description
+      console.error('MP PIX ERRO:', JSON.stringify({
+        status: mpPayment.status,
+        status_detail: mpPayment.status_detail,
+        error: mpPayment.error,
+        message: mpPayment.message,
+        cause: mpPayment.cause,
+      }, null, 2))
+
+      // Mapeia erros do MP para mensagens claras em português
+      const MP_ERRORS: Record<string, string> = {
+        '2072': 'Não foi possível verificar a identidade financeira do pagador. Tente com outro e-mail ou entre em contato conosco.',
+        '2001': 'CPF inválido ou não encontrado. Verifique o número informado.',
+        '2067': 'E-mail inválido para pagamento Pix.',
+        '2073': 'Identidade do pagador não verificada. Confirme seus dados e tente novamente.',
+        'cc_rejected_bad_filled_security_code': 'Código de segurança do cartão incorreto.',
+        'cc_rejected_blacklist': 'Pagamento não autorizado. Entre em contato com seu banco.',
+        'cc_rejected_insufficient_amount': 'Saldo insuficiente.',
+      }
+
+      const userMsg = (causeCode && MP_ERRORS[String(causeCode)])
+        ?? MP_ERRORS[mpPayment.status_detail ?? '']
+        ?? causeDesc
+        ?? mpPayment.message
+        ?? 'Pagamento recusado. Tente novamente ou escolha outra forma de pagamento.'
+
+      return NextResponse.json({ error: userMsg }, { status: 400 })
     }
 
     const order = await prisma.order.create({
