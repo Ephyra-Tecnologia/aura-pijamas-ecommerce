@@ -16,6 +16,7 @@ export interface ProductCategory {
 export interface Product {
   id: string | number
   name: string
+  slug?: string
   category?: string | { name: string } | null
   categories?: ProductCategory[]
   sizes?: ProductSize[]
