@@ -1,9 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
+import { enviarEmailConfirmacaoPedido } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
+
+  // ── Detecta se é evento do Pagar.me (não tem header stripe-signature) ────
+  const isStripe = !!req.headers.get('stripe-signature')
+  if (!isStripe) {
+    let pagarmeEvent: any
+    try { pagarmeEvent = JSON.parse(rawBody) } catch {
+      return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
+    }
+    const type = pagarmeEvent?.type ?? ''
+    const pagarmeOrderId = type === 'charge.paid'
+      ? (pagarmeEvent?.data?.order?.id ?? pagarmeEvent?.data?.id)
+      : pagarmeEvent?.data?.id
+
+    console.log('PAGARME WEBHOOK:', type, pagarmeOrderId)
+
+    try {
+      if (type === 'order.paid' || type === 'charge.paid') {
+        await prisma.order.updateMany({ where: { pagarmeId: pagarmeOrderId }, data: { status: 'PAID' } })
+        const order = await prisma.order.findFirst({
+          where: { pagarmeId: pagarmeOrderId },
+          include: { items: { include: { product: true } } },
+        })
+        if (order) enviarEmailConfirmacaoPedido(order).catch(console.error)
+      }
+      if (type === 'order.canceled' || type === 'charge.payment_failed') {
+        await prisma.order.updateMany({ where: { pagarmeId: pagarmeOrderId }, data: { status: 'CANCELLED' } })
+      }
+    } catch (err) {
+      console.error('Erro ao processar webhook Pagar.me:', err)
+    }
+    return NextResponse.json({ received: true })
+  }
+
+  // ── Stripe ────────────────────────────────────────────────────────────────
   const sig = req.headers.get('stripe-signature') ?? ''
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
