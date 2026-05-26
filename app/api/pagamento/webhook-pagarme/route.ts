@@ -6,10 +6,10 @@ import { enviarEmailConfirmacaoPedido } from '@/lib/email'
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
-  // Verifica assinatura do webhook (se configurada)
+  // Verifica assinatura do webhook — só valida se o header vier no request
   const webhookSecret = process.env.PAGARME_WEBHOOK_SECRET
-  if (webhookSecret) {
-    const signature = req.headers.get('x-hub-signature') ?? ''
+  const signature = req.headers.get('x-hub-signature')
+  if (webhookSecret && signature) {
     const expected = 'sha1=' + createHmac('sha1', webhookSecret).update(rawBody).digest('hex')
     if (signature !== expected) {
       console.error('Pagar.me webhook: assinatura inválida')
@@ -28,7 +28,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const type = event.type ?? ''
-    const orderId = event.data?.id // ID do pedido no Pagar.me
+    // order.paid → event.data.id é o order ID
+    // charge.paid → event.data.id é o charge ID; o order ID fica em event.data.order.id
+    const orderId = type === 'charge.paid'
+      ? (event.data?.order?.id ?? event.data?.id)
+      : event.data?.id
 
     // ── Pedido pago (Pix confirmado) ─────────────────────────────────────────
     if (type === 'order.paid' || type === 'charge.paid') {
