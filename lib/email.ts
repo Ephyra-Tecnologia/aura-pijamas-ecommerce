@@ -1,7 +1,12 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = 'Aura Pijamas <noreply@aurapijamas.com.br>'
+
+// Instancia o cliente só quando for usar (evita erro no build sem a env var)
+function getResend() {
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY não configurada')
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   'Aguardando pagamento',
@@ -115,7 +120,7 @@ export async function enviarEmailConfirmacaoPedido(order: {
       <p style="font-size:13px;color:#8C7B6B;margin:0;">Você receberá um e-mail quando seu pedido for enviado. 🌙</p>
     </div>`
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: order.email,
     subject: `Pedido #${shortId} confirmado · Aura Pijamas`,
@@ -164,7 +169,7 @@ export async function enviarEmailAtualizacaoStatus(order: {
     <p style="font-size:14px;color:#4A3F35;line-height:1.7;margin:0;">${msg}</p>
     ${trackingHtml}`
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: order.email,
     subject: `${icon} Pedido #${shortId} · ${label} · Aura Pijamas`,
