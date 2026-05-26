@@ -10,13 +10,15 @@ interface FormData {
   zipCode: string; address: string; number: string
   complement: string; neighborhood: string; city: string; state: string
 }
+interface CardData {
+  number: string; holderName: string; expiry: string; cvv: string
+}
 
 const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
 const SEM_JUROS = 3
 const MAX_PARCELAS = 12
 const TAXA_MENSAL = 0.0299
 
-// ── Cálculo de parcelas ────────────────────────────────────────────────────────
 function calcParcelas(principal: number, n: number) {
   if (n <= SEM_JUROS) return { valorParcela: principal / n, totalComJuros: principal, juros: 0 }
   const r = TAXA_MENSAL
@@ -25,7 +27,6 @@ function calcParcelas(principal: number, n: number) {
   return { valorParcela: pmt, totalComJuros, juros: totalComJuros - principal }
 }
 
-// ── Validações ─────────────────────────────────────────────────────────────────
 const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
 const validatePhone = (v: string) => { const n = v.replace(/\D/g, ''); return n.length === 10 || n.length === 11 }
 const validateCPF = (cpf: string): boolean => {
@@ -40,7 +41,6 @@ const validateCPF = (cpf: string): boolean => {
   return calc(d, 9) === d[9] && calc(d, 10) === d[10]
 }
 
-// ── Formatações ────────────────────────────────────────────────────────────────
 const formatPhone = (v: string) => {
   const n = v.replace(/\D/g, '').slice(0, 11)
   if (n.length <= 2) return n
@@ -55,8 +55,12 @@ const formatCPF = (v: string) => {
   if (n.length <= 9) return `${n.slice(0, 3)}.${n.slice(3, 6)}.${n.slice(6)}`
   return `${n.slice(0, 3)}.${n.slice(3, 6)}.${n.slice(6, 9)}-${n.slice(9)}`
 }
+const formatCard = (v: string) => v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim()
+const formatExpiry = (v: string) => {
+  const n = v.replace(/\D/g, '').slice(0, 4)
+  return n.length > 2 ? `${n.slice(0, 2)}/${n.slice(2)}` : n
+}
 
-// ── Campo com validação inline ─────────────────────────────────────────────────
 function Field({ label, hint, value, onChange, onBlur, error, type = 'text', placeholder = '', maxLength, inputMode, autoComplete }: {
   label: string; hint?: string; value: string
   onChange: (v: string) => void; onBlur?: () => void; error?: string
@@ -91,7 +95,6 @@ function Field({ label, hint, value, onChange, onBlur, error, type = 'text', pla
   )
 }
 
-// ── Resumo do pedido ───────────────────────────────────────────────────────────
 function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
   items: any[]; totalItems: () => number; selectedFrete: FreteOption | null; totalFinal: number
 }) {
@@ -126,7 +129,6 @@ function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
   )
 }
 
-// ── Seletor de parcelas ────────────────────────────────────────────────────────
 function InstallmentSelector({ totalFinal, parcelas, setParcelas }: {
   totalFinal: number; parcelas: number; setParcelas: (n: number) => void
 }) {
@@ -160,7 +162,6 @@ function InstallmentSelector({ totalFinal, parcelas, setParcelas }: {
   )
 }
 
-// ── Pix confirmação ────────────────────────────────────────────────────────────
 function PixConfirmacao({ qrCode, qrCodeUrl, orderId }: { qrCode: string; qrCodeUrl: string; orderId: string }) {
   const [status, setStatus] = useState<'waiting' | 'paid'>('waiting')
   useEffect(() => {
@@ -203,6 +204,94 @@ function PixConfirmacao({ qrCode, qrCodeUrl, orderId }: { qrCode: string; qrCode
   )
 }
 
+// ── Formulário de cartão ───────────────────────────────────────────────────────
+function CardForm({ card, setCard, errors }: {
+  card: CardData
+  setCard: (c: CardData) => void
+  errors: Record<string, string>
+}) {
+  const inputStyle = (err?: string): React.CSSProperties => ({
+    border: 'none',
+    borderBottom: `1px solid ${err ? '#c0392b' : 'var(--sand)'}`,
+    padding: '10px 0',
+    background: 'transparent',
+    fontSize: 15,
+    fontFamily: 'var(--font-sans)',
+    color: 'var(--dark)',
+    width: '100%',
+    outline: 'none',
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', margin: 0 }}>Dados do cartão</p>
+
+      <div>
+        <label className="checkout-label">Número do cartão</label>
+        <input
+          style={inputStyle(errors.cardNumber)}
+          type="text"
+          inputMode="numeric"
+          placeholder="0000 0000 0000 0000"
+          value={card.number}
+          maxLength={19}
+          autoComplete="cc-number"
+          onChange={e => setCard({ ...card, number: formatCard(e.target.value) })}
+        />
+        {errors.cardNumber && <span style={{ fontSize: 11, color: '#c0392b', marginTop: 4, display: 'block' }}>⚠ {errors.cardNumber}</span>}
+      </div>
+
+      <div>
+        <label className="checkout-label">Nome impresso no cartão</label>
+        <input
+          style={inputStyle(errors.holderName)}
+          type="text"
+          placeholder="NOME SOBRENOME"
+          value={card.holderName}
+          autoComplete="cc-name"
+          onChange={e => setCard({ ...card, holderName: e.target.value.toUpperCase() })}
+        />
+        {errors.holderName && <span style={{ fontSize: 11, color: '#c0392b', marginTop: 4, display: 'block' }}>⚠ {errors.holderName}</span>}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
+          <label className="checkout-label">Validade</label>
+          <input
+            style={inputStyle(errors.expiry)}
+            type="text"
+            inputMode="numeric"
+            placeholder="MM/AA"
+            value={card.expiry}
+            maxLength={5}
+            autoComplete="cc-exp"
+            onChange={e => setCard({ ...card, expiry: formatExpiry(e.target.value) })}
+          />
+          {errors.expiry && <span style={{ fontSize: 11, color: '#c0392b', marginTop: 4, display: 'block' }}>⚠ {errors.expiry}</span>}
+        </div>
+        <div>
+          <label className="checkout-label">CVV</label>
+          <input
+            style={inputStyle(errors.cvv)}
+            type="text"
+            inputMode="numeric"
+            placeholder="123"
+            value={card.cvv}
+            maxLength={4}
+            autoComplete="cc-csc"
+            onChange={e => setCard({ ...card, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+          />
+          {errors.cvv && <span style={{ fontSize: 11, color: '#c0392b', marginTop: 4, display: 'block' }}>⚠ {errors.cvv}</span>}
+        </div>
+      </div>
+
+      <p style={{ fontSize: 11, color: 'var(--stone)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+        🔒 Seus dados são criptografados e não ficam armazenados
+      </p>
+    </div>
+  )
+}
+
 // ── Página principal ───────────────────────────────────────────────────────────
 export default function CheckoutPage() {
   const { items, total } = useCartStore()
@@ -220,6 +309,7 @@ export default function CheckoutPage() {
   const [parcelas, setParcelas] = useState(1)
   const [paymentError, setPaymentError] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [card, setCard] = useState<CardData>({ number: '', holderName: '', expiry: '', cvv: '' })
   const topRef = useRef<HTMLDivElement>(null)
 
   const [form, setForm] = useState<FormData>({
@@ -230,13 +320,11 @@ export default function CheckoutPage() {
 
   const setField = (key: keyof FormData, value: string) => {
     setForm(f => ({ ...f, [key]: value }))
-    // Limpa erro do campo ao editar
     if (errors[key]) setErrors(e => { const n = { ...e }; delete n[key]; return n })
   }
 
   const setError = (key: string, msg: string) => setErrors(e => ({ ...e, [key]: msg }))
 
-  // ── Validação por campo (on blur) ──────────────────────────────────────────
   const blurEmail = () => {
     if (form.email && !validateEmail(form.email))
       setError('email', 'E-mail inválido. Ex: nome@email.com')
@@ -252,7 +340,6 @@ export default function CheckoutPage() {
       setErrors(e => { const n = { ...e }; delete n.documento; return n })
   }
 
-  // ── CEP: busca endereço e já calcula frete ─────────────────────────────────
   const buscarCep = async (cep: string) => {
     const clean = cep.replace(/\D/g, '')
     if (clean.length !== 8) return
@@ -262,7 +349,6 @@ export default function CheckoutPage() {
       const data = await res.json()
       if (!data.erro) {
         setForm(f => ({ ...f, address: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf }))
-        // Já calcula frete automaticamente
         await calcularFrete()
       } else {
         setError('zipCode', 'CEP não encontrado. Verifique e tente novamente.')
@@ -286,7 +372,6 @@ export default function CheckoutPage() {
   const totalFinal = total() + (selectedFrete?.price || 0)
   const { valorParcela, totalComJuros } = calcParcelas(totalFinal, parcelas)
 
-  // ── Validar e avançar step 1 ───────────────────────────────────────────────
   const goStep2 = () => {
     const newErrors: Record<string, string> = {}
     if (!form.name.trim()) newErrors.name = 'Nome obrigatório'
@@ -298,7 +383,6 @@ export default function CheckoutPage() {
     if (Object.keys(newErrors).length === 0) setStep(2)
   }
 
-  // ── Validar e avançar step 2 ───────────────────────────────────────────────
   const goStep3 = () => {
     const newErrors: Record<string, string> = {}
     if (!form.zipCode.trim()) newErrors.zipCode = 'CEP obrigatório'
@@ -310,23 +394,53 @@ export default function CheckoutPage() {
     if (Object.keys(newErrors).length === 0) setStep(3)
   }
 
-  // ── Pagamento ──────────────────────────────────────────────────────────────
+  const validateCard = () => {
+    const newErrors: Record<string, string> = {}
+    if (card.number.replace(/\s/g, '').length < 13) newErrors.cardNumber = 'Número do cartão inválido'
+    if (!card.holderName.trim()) newErrors.holderName = 'Nome no cartão obrigatório'
+    const [mm, yy] = card.expiry.split('/')
+    if (!mm || !yy || +mm < 1 || +mm > 12 || yy.length < 2) newErrors.expiry = 'Data de validade inválida'
+    if (card.cvv.length < 3) newErrors.cvv = 'CVV inválido'
+    return newErrors
+  }
+
   const handlePayment = async () => {
-    // Validação inline de CPF antes de enviar
     const newErrors: Record<string, string> = {}
     if (!documento.trim()) {
       newErrors.documento = 'CPF obrigatório'
     } else if (!validateCPF(documento)) {
       newErrors.documento = 'CPF inválido. Verifique o número informado.'
     }
+
+    // Valida campos do cartão
+    if (paymentMethod === 'credit_card') {
+      const cardErrors = validateCard()
+      Object.assign(newErrors, cardErrors)
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(e => ({ ...e, ...newErrors }))
+      topRef.current?.scrollIntoView({ behavior: 'smooth' })
       return
     }
 
     setPaymentError('')
     setProcessingPayment(true)
     try {
+      // Monta dados do cartão para Pagar.me
+      let cardPayload = undefined
+      if (paymentMethod === 'credit_card') {
+        const [expMonth, expYear] = card.expiry.split('/')
+        cardPayload = {
+          number: card.number.replace(/\s/g, ''),
+          holder_name: card.holderName,
+          exp_month: parseInt(expMonth),
+          exp_year: parseInt('20' + expYear),
+          cvv: card.cvv,
+          installments: parcelas,
+        }
+      }
+
       const res = await fetch('/api/pagamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -341,20 +455,23 @@ export default function CheckoutPage() {
           total: totalFinal,
           paymentMethod,
           parcelas: paymentMethod === 'credit_card' ? parcelas : 1,
+          cardData: cardPayload,
         }),
       })
       const data = await res.json()
       if (!res.ok) {
         setPaymentError(data.error ?? 'Erro ao processar pagamento.')
+        topRef.current?.scrollIntoView({ behavior: 'smooth' })
         return
       }
       if (data.checkoutUrl) { window.location.href = data.checkoutUrl; return }
       setOrderId(data.orderId)
       if (data.pix) setPixData(data.pix)
+      // Cartão aprovado: redireciona para sucesso
+      if (data.paid) { window.location.href = `/checkout/sucesso?order=${data.orderId}`; return }
     } catch {
       setPaymentError('Erro de conexão. Verifique sua internet e tente novamente.')
     } finally {
-      // Sempre libera o botão, mesmo que dê erro
       setProcessingPayment(false)
     }
   }
@@ -371,12 +488,10 @@ export default function CheckoutPage() {
   return (
     <div ref={topRef} style={{ minHeight: '100vh', background: 'var(--cream)', fontFamily: 'var(--font-sans)' }}>
 
-      {/* Header */}
       <div style={{ borderBottom: '1px solid var(--sand)', padding: '16px 6vw', display: 'flex', justifyContent: 'center' }}>
         <Link href="/"><Image src="/assets/aura-header.png" alt="Aura Pijamas" height={36} width={120} style={{ objectFit: 'contain', mixBlendMode: 'multiply' }} /></Link>
       </div>
 
-      {/* Resumo mobile */}
       <div className="checkout-summary-mobile">
         <button onClick={() => setSummaryOpen(o => !o)} style={{ width: '100%', background: 'var(--sand)', border: 'none', borderBottom: '1px solid #d4c9bc', padding: '14px 5vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}>
           <span style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--earth)' }}>{summaryOpen ? 'Ocultar resumo ▲' : 'Ver resumo do pedido ▼'}</span>
@@ -405,51 +520,22 @@ export default function CheckoutPage() {
             ))}
           </div>
 
-          {/* ── Step 1: Dados pessoais ── */}
+          {/* ── Step 1 ── */}
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Seus dados</h2>
-              <Field
-                label="Nome completo"
-                value={form.name}
-                onChange={v => setField('name', v)}
-                error={errors.name}
-                autoComplete="name"
-              />
-              <Field
-                label="E-mail"
-                value={form.email}
-                onChange={v => setField('email', v.trim())}
-                onBlur={blurEmail}
-                error={errors.email}
-                type="email"
-                placeholder="seu@email.com"
-                autoComplete="email"
-              />
-              <Field
-                label="Telefone / WhatsApp"
-                hint="DDD + 8 ou 9 dígitos"
-                value={form.phone}
-                onChange={v => setField('phone', formatPhone(v))}
-                onBlur={blurPhone}
-                error={errors.phone}
-                type="tel"
-                placeholder="(11) 99999-9999"
-                inputMode="tel"
-                autoComplete="tel"
-              />
-              <button className="checkout-btn-primary" onClick={goStep2} style={{ marginTop: 8 }}>
-                Continuar
-              </button>
+              <Field label="Nome completo" value={form.name} onChange={v => setField('name', v)} error={errors.name} autoComplete="name" />
+              <Field label="E-mail" value={form.email} onChange={v => setField('email', v.trim())} onBlur={blurEmail} error={errors.email} type="email" placeholder="seu@email.com" autoComplete="email" />
+              <Field label="Telefone / WhatsApp" hint="DDD + 8 ou 9 dígitos" value={form.phone} onChange={v => setField('phone', formatPhone(v))} onBlur={blurPhone} error={errors.phone} type="tel" placeholder="(11) 99999-9999" inputMode="tel" autoComplete="tel" />
+              <button className="checkout-btn-primary" onClick={goStep2} style={{ marginTop: 8 }}>Continuar</button>
             </div>
           )}
 
-          {/* ── Step 2: Endereço ── */}
+          {/* ── Step 2 ── */}
           {step === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Endereço de entrega</h2>
 
-              {/* CEP */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 <label className="checkout-label">
                   CEP
@@ -460,10 +546,7 @@ export default function CheckoutPage() {
                   className="checkout-input"
                   type="text"
                   value={form.zipCode}
-                  onChange={e => {
-                    setField('zipCode', e.target.value)
-                    buscarCep(e.target.value)
-                  }}
+                  onChange={e => { setField('zipCode', e.target.value); buscarCep(e.target.value) }}
                   maxLength={9}
                   placeholder="00000-000"
                   inputMode="numeric"
@@ -481,7 +564,6 @@ export default function CheckoutPage() {
               <Field label="Bairro" value={form.neighborhood} onChange={v => setField('neighborhood', v)} />
               <Field label="Cidade" value={form.city} onChange={v => setField('city', v)} error={errors.city} />
 
-              {/* Opções de frete */}
               {(loadingFrete || freteOptions.length > 0) && (
                 <div style={{ borderTop: '1px solid var(--sand)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <p style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 4 }}>Frete</p>
@@ -503,9 +585,8 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {/* Botão de calcular frete manual (caso CEP já esteja preenchido mas frete não calculou) */}
               {!loadingFrete && freteOptions.length === 0 && form.zipCode.replace(/\D/g, '').length === 8 && (
-                <button onClick={calcularFrete} style={{ background: 'transparent', border: '1px solid var(--dark)', color: 'var(--dark)', padding: '13px 20px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', borderRadius: 0, WebkitAppearance: 'none' }}>
+                <button onClick={calcularFrete} style={{ background: 'transparent', border: '1px solid var(--dark)', color: 'var(--dark)', padding: '13px 20px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer' }}>
                   Calcular frete
                 </button>
               )}
@@ -518,7 +599,7 @@ export default function CheckoutPage() {
           )}
 
           {/* ── Step 3: Pagamento ── */}
-          {step === 3 && !pixData && (
+          {step === 3 && !pixData && !orderId && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, margin: '0 0 4px' }}>Pagamento</h2>
 
@@ -538,20 +619,13 @@ export default function CheckoutPage() {
 
               {/* CPF */}
               <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
-                <label className="checkout-label">
-                  CPF
-                  <span style={{ fontSize: 9, color: 'var(--stone)', fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>obrigatório para Pix</span>
-                </label>
+                <label className="checkout-label">CPF</label>
                 <input
                   className="checkout-input"
                   type="text"
                   placeholder="000.000.000-00"
                   value={documento}
-                  onChange={e => {
-                    const formatted = formatCPF(e.target.value)
-                    setDocumento(formatted)
-                    if (errors.documento) setErrors(er => { const n = { ...er }; delete n.documento; return n })
-                  }}
+                  onChange={e => { const f = formatCPF(e.target.value); setDocumento(f); if (errors.documento) setErrors(er => { const n = { ...er }; delete n.documento; return n }) }}
                   onBlur={blurCPF}
                   maxLength={14}
                   inputMode="numeric"
@@ -575,21 +649,23 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Parcelamento */}
+              {/* Cartão + Parcelamento */}
               {paymentMethod === 'credit_card' && (
                 <div style={cardStyle}>
-                  <InstallmentSelector totalFinal={totalFinal} parcelas={parcelas} setParcelas={setParcelas} />
-                  {parcelas > SEM_JUROS && (
-                    <p style={{ fontSize: 11, color: 'var(--stone)', marginTop: 12, lineHeight: 1.6 }}>
-                      Total com juros: <strong style={{ color: 'var(--dark)' }}>{fmt(totalComJuros)}</strong>
-                    </p>
-                  )}
+                  <CardForm card={card} setCard={setCard} errors={errors} />
+                  <div style={{ marginTop: 20, borderTop: '1px solid var(--sand)', paddingTop: 20 }}>
+                    <InstallmentSelector totalFinal={totalFinal} parcelas={parcelas} setParcelas={setParcelas} />
+                    {parcelas > SEM_JUROS && (
+                      <p style={{ fontSize: 11, color: 'var(--stone)', marginTop: 12, lineHeight: 1.6 }}>
+                        Total com juros: <strong style={{ color: 'var(--dark)' }}>{fmt(totalComJuros)}</strong>
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Erro de pagamento inline */}
               {paymentError && (
-                <div style={{ background: '#fdf2f2', border: '1px solid #f5c6cb', padding: '14px 16px', borderRadius: 0 }}>
+                <div style={{ background: '#fdf2f2', border: '1px solid #f5c6cb', padding: '14px 16px' }}>
                   <span style={{ fontSize: 13, color: '#c0392b', display: 'flex', alignItems: 'flex-start', gap: 8, lineHeight: 1.5 }}>
                     <span style={{ flexShrink: 0 }}>⚠</span>
                     {paymentError}
@@ -606,7 +682,7 @@ export default function CheckoutPage() {
                   disabled={processingPayment}
                 >
                   {processingPayment
-                    ? 'Aguarde...'
+                    ? 'Processando...'
                     : paymentMethod === 'pix'
                     ? `Gerar Pix · ${fmt(totalFinal)}`
                     : parcelas > 1
@@ -614,12 +690,6 @@ export default function CheckoutPage() {
                     : `Pagar · ${fmt(totalFinal)}`}
                 </button>
               </div>
-
-              {paymentMethod === 'credit_card' && (
-                <p style={{ fontSize: 11, color: 'var(--stone)', textAlign: 'center' }}>
-                  🔒 Você será redirecionado para o Stripe para inserir os dados do cartão
-                </p>
-              )}
             </div>
           )}
 
@@ -630,7 +700,6 @@ export default function CheckoutPage() {
           <div style={{ height: 48 }} />
         </div>
 
-        {/* Resumo desktop */}
         <div className="checkout-summary-desktop">
           <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', position: 'sticky', top: 24 }}>
             <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 20 }}>Seu pedido</h3>

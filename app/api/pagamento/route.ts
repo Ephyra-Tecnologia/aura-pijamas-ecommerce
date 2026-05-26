@@ -1,36 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStripe } from '@/lib/stripe'
 import { criarPedidoPagarme } from '@/lib/pagarme'
 import { prisma } from '@/lib/prisma'
 import { enviarEmailConfirmacaoPedido } from '@/lib/email'
 
+const SEM_JUROS = 3
+const TAXA_MENSAL = 0.0299
+
+function calcParcelas(total: number, n: number) {
+  if (n <= SEM_JUROS) return { totalComJuros: total, valorParcela: total / n, juros: 0 }
+  const r = TAXA_MENSAL
+  const pmt = total * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1)
+  const totalComJuros = pmt * n
+  return { totalComJuros, valorParcela: pmt, juros: totalComJuros - total }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { customer, cartItems, shipping, paymentMethod, total, parcelas = 1 } = body
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://aurapijamas.com.br'
+    const { customer, cartItems, shipping, paymentMethod, total, parcelas = 1, cardData } = body
 
-    // ─── Cartão de crédito via Stripe Checkout ───────────────────────────────
+    if (!process.env.PAGARME_SECRET_KEY) {
+      console.error('PAGARME_SECRET_KEY não configurada')
+      return NextResponse.json({ error: 'Gateway de pagamento não configurado. Entre em contato conosco.' }, { status: 500 })
+    }
+
+    // ─── Cartão via Pagar.me (parcelamento real) ──────────────────────────────
     if (paymentMethod === 'credit_card') {
-      const stripe = getStripe()
-      const SEM_JUROS = 3
-      const TAXA_MENSAL = 0.0299
+      if (!cardData) {
+        return NextResponse.json({ error: 'Dados do cartão não informados.' }, { status: 400 })
+      }
 
-      let totalComJuros = total
-      let valorParcela = total / parcelas
-      let juros = 0
-      if (parcelas > SEM_JUROS) {
-        const r = TAXA_MENSAL
-        const n = parcelas
-        const pmt = total * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1)
-        valorParcela = pmt
-        totalComJuros = pmt * n
-        juros = totalComJuros - total
+      const { totalComJuros } = calcParcelas(total, parcelas)
+
+      const pmResult = await criarPedidoPagarme({
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        document: customer.document ?? '',
+        items: cartItems.map((item: any) => ({
+          name: item.name,
+          amount: Math.round(item.price * 100),
+          quantity: item.qty,
+        })),
+        shipping: {
+          amount: Math.round((shipping?.price || 0) * 100),
+          address: {
+            line_1: shipping.address.line_1 ?? '',
+            zip_code: (shipping.address.zip_code ?? '').replace(/\D/g, ''),
+            city: shipping.address.city ?? '',
+            state: shipping.address.state ?? '',
+            country: 'BR',
+          },
+        },
+        paymentMethod: 'credit_card',
+        cardData: {
+          number: cardData.number,
+          holder_name: cardData.holder_name,
+          exp_month: cardData.exp_month,
+          exp_year: cardData.exp_year,
+          cvv: cardData.cvv,
+          installments: parcelas,
+        },
+      })
+
+      if (!pmResult.id || pmResult.status === 'failed' || pmResult.errors || pmResult.type === 'invalid_request_error') {
+        console.error('PAGARME CARTÃO ERRO:', JSON.stringify(pmResult, null, 2))
+        const errMsg = pmResult.message ?? pmResult.errors?.[0]?.message ?? 'Pagamento recusado. Verifique os dados do cartão e tente novamente.'
+        return NextResponse.json({ error: errMsg }, { status: 400 })
       }
 
       const order = await prisma.order.create({
         data: {
-          status: 'PENDING',
+          status: pmResult.status === 'paid' ? 'PAID' : 'PENDING',
           total: totalComJuros,
           name: customer.name,
           email: customer.email,
@@ -39,7 +80,7 @@ export async function POST(req: NextRequest) {
           address: shipping.address.line_1,
           city: shipping.address.city,
           state: shipping.address.state,
-          pagarmeId: 'stripe_pending',
+          pagarmeId: pmResult.id,
           items: {
             create: cartItems.map((item: any) => ({
               quantity: item.qty,
@@ -52,69 +93,18 @@ export async function POST(req: NextRequest) {
         include: { items: { include: { product: true } } },
       })
 
-      const lineItems: any[] = cartItems.map((item: any) => ({
-        price_data: {
-          currency: 'brl',
-          product_data: { name: item.name },
-          unit_amount: Math.round(item.price * 100),
-        },
-        quantity: item.qty,
-      }))
+      enviarEmailConfirmacaoPedido(order).catch(console.error)
 
-      if (shipping.price > 0) {
-        lineItems.push({
-          price_data: {
-            currency: 'brl',
-            product_data: { name: shipping.method ?? 'Frete' },
-            unit_amount: Math.round(shipping.price * 100),
-          },
-          quantity: 1,
-        })
+      // Cartão aprovado na hora
+      if (pmResult.status === 'paid') {
+        return NextResponse.json({ orderId: order.id, paid: true })
       }
 
-      if (juros > 0) {
-        lineItems.push({
-          price_data: {
-            currency: 'brl',
-            product_data: {
-              name: `Juros de parcelamento (${parcelas}x · ${(TAXA_MENSAL * 100).toFixed(2).replace('.', ',')}%/mês)`,
-            },
-            unit_amount: Math.round(juros * 100),
-          },
-          quantity: 1,
-        })
-      }
-
-      const parcelaLabel = `${parcelas}x de R$ ${valorParcela.toFixed(2).replace('.', ',')}${parcelas <= SEM_JUROS ? ' sem juros' : ` com juros de ${(TAXA_MENSAL * 100).toFixed(2).replace('.', ',')}%/mês`}`
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        mode: 'payment',
-        customer_email: customer.email,
-        line_items: lineItems,
-        success_url: `${baseUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/checkout/cancelado`,
-        metadata: { orderId: order.id, parcelas: String(parcelas) },
-        payment_intent_data: { metadata: { orderId: order.id, parcelas: String(parcelas) } },
-        custom_text: {
-          submit: { message: `Parcelado em ${parcelaLabel}` },
-        },
-      })
-
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { pagarmeId: session.id },
-      })
-
-      return NextResponse.json({ checkoutUrl: session.url })
+      // Pendente (raro em cartão, mas possível)
+      return NextResponse.json({ orderId: order.id, paid: false })
     }
 
     // ─── Pix via Pagar.me ─────────────────────────────────────────────────────
-    if (!process.env.PAGARME_SECRET_KEY) {
-      console.error('PAGARME_SECRET_KEY não configurada')
-      return NextResponse.json({ error: 'Gateway de pagamento não configurado. Entre em contato conosco.' }, { status: 500 })
-    }
-
     const pmResult = await criarPedidoPagarme({
       name: customer.name,
       email: customer.email,
@@ -138,9 +128,7 @@ export async function POST(req: NextRequest) {
       paymentMethod: 'pix',
     })
 
-    // Detecta qualquer tipo de erro do Pagar.me (HTTP 4xx/5xx, campo errors, status failed, sem id)
-    const pmHasError = !pmResult.id || pmResult.status === 'failed' || pmResult.errors || pmResult.type === 'invalid_request_error'
-    if (pmHasError) {
+    if (!pmResult.id || pmResult.status === 'failed' || pmResult.errors || pmResult.type === 'invalid_request_error') {
       console.error('PAGARME PIX ERRO:', JSON.stringify(pmResult, null, 2))
       const errMsg = pmResult.message ?? pmResult.errors?.[0]?.message ?? 'Erro ao gerar Pix. Verifique seus dados e tente novamente.'
       return NextResponse.json({ error: errMsg }, { status: 400 })
@@ -170,10 +158,8 @@ export async function POST(req: NextRequest) {
       include: { items: { include: { product: true } } },
     })
 
-    // E-mail de confirmação
     enviarEmailConfirmacaoPedido(order).catch(console.error)
 
-    // Extrai QR code do Pagar.me
     const charge = pmResult.charges?.[0]
     const lastTx = charge?.last_transaction
     const qrCode = lastTx?.qr_code ?? null
