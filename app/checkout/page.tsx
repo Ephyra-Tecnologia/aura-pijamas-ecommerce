@@ -95,8 +95,13 @@ function Field({ label, hint, value, onChange, onBlur, error, type = 'text', pla
   )
 }
 
-function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
+interface CouponData { code: string; discountType: string; discount: number; discountValue: number }
+
+function OrderSummary({ items, totalItems, selectedFrete, totalFinal, couponInput, setCouponInput, couponData, couponError, couponLoading, onApplyCoupon, onRemoveCoupon }: {
   items: any[]; totalItems: () => number; selectedFrete: FreteOption | null; totalFinal: number
+  couponInput: string; setCouponInput: (v: string) => void
+  couponData: CouponData | null; couponError: string; couponLoading: boolean
+  onApplyCoupon: () => void; onRemoveCoupon: () => void
 }) {
   return (
     <>
@@ -114,6 +119,37 @@ function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
           </div>
         ))}
       </div>
+
+      {/* Cupom */}
+      {!couponData ? (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={couponInput}
+              onChange={e => setCouponInput(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && onApplyCoupon()}
+              placeholder="Cupom de desconto"
+              style={{ flex: 1, border: 'none', borderBottom: `1px solid ${couponError ? '#c0392b' : 'var(--sand)'}`, padding: '9px 0', fontSize: 13, fontFamily: 'var(--font-sans)', background: 'transparent', outline: 'none', color: 'var(--dark)', letterSpacing: '0.05em' }}
+            />
+            <button onClick={onApplyCoupon} disabled={couponLoading || !couponInput.trim()}
+              style={{ background: 'none', border: 'none', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--earth)', cursor: couponLoading || !couponInput.trim() ? 'not-allowed' : 'pointer', opacity: couponLoading || !couponInput.trim() ? 0.5 : 1, padding: '0 4px', whiteSpace: 'nowrap' }}>
+              {couponLoading ? '...' : 'Aplicar'}
+            </button>
+          </div>
+          {couponError && <span style={{ fontSize: 11, color: '#c0392b', marginTop: 4, display: 'block' }}>⚠ {couponError}</span>}
+        </div>
+      ) : (
+        <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 12px' }}>
+          <span style={{ fontSize: 12, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6 }}>
+            ✓ <strong>{couponData.code}</strong>
+            <span style={{ fontWeight: 400 }}>
+              {couponData.discountType === 'percent' ? ` — ${couponData.discount}% off` : ''}
+            </span>
+          </span>
+          <button onClick={onRemoveCoupon} style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: '#16a34a', lineHeight: 1, padding: 0 }}>×</button>
+        </div>
+      )}
+
       <div style={{ borderTop: '1px solid var(--sand)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--stone)' }}>
           <span>Subtotal</span><span>{fmt(totalItems())}</span>
@@ -121,6 +157,12 @@ function OrderSummary({ items, totalItems, selectedFrete, totalFinal }: {
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--stone)' }}>
           <span>Frete</span><span>{selectedFrete ? (selectedFrete.price === 0 ? 'Grátis' : fmt(selectedFrete.price)) : '—'}</span>
         </div>
+        {couponData && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#16a34a' }}>
+            <span>Desconto ({couponData.code})</span>
+            <span>− {fmt(couponData.discountValue)}</span>
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-serif)', fontSize: 18, marginTop: 6, borderTop: '1px solid var(--sand)', paddingTop: 12 }}>
           <span>Total</span><span>{fmt(totalFinal)}</span>
         </div>
@@ -310,6 +352,10 @@ export default function CheckoutPage() {
   const [paymentError, setPaymentError] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [card, setCard] = useState<CardData>({ number: '', holderName: '', expiry: '', cvv: '' })
+  const [couponInput, setCouponInput] = useState('')
+  const [couponData, setCouponData] = useState<CouponData | null>(null)
+  const [couponError, setCouponError] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
   const topRef = useRef<HTMLDivElement>(null)
 
   const [form, setForm] = useState<FormData>({
@@ -369,8 +415,32 @@ export default function CheckoutPage() {
     setLoadingFrete(false)
   }
 
-  const totalFinal = total() + (selectedFrete?.price || 0)
+  const subtotalComFrete = total() + (selectedFrete?.price || 0)
+  const totalFinal = Math.max(0, subtotalComFrete - (couponData?.discountValue ?? 0))
   const { valorParcela, totalComJuros } = calcParcelas(totalFinal, parcelas)
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim()
+    if (!code) return
+    setCouponLoading(true)
+    setCouponError('')
+    try {
+      const cpf = documento.replace(/\D/g, '')
+      const res = await fetch(`/api/cupons/${encodeURIComponent(code)}?cpf=${cpf}&total=${subtotalComFrete}`)
+      const data = await res.json()
+      if (!res.ok) { setCouponError(data.error ?? 'Cupom inválido.'); setCouponLoading(false); return }
+      setCouponData(data)
+    } catch {
+      setCouponError('Erro ao validar cupom.')
+    }
+    setCouponLoading(false)
+  }
+
+  const removeCoupon = () => {
+    setCouponData(null)
+    setCouponInput('')
+    setCouponError('')
+  }
 
   const goStep2 = () => {
     const newErrors: Record<string, string> = {}
@@ -453,6 +523,7 @@ export default function CheckoutPage() {
           },
           cartItems: items,
           total: totalFinal,
+          couponCode: couponData?.code ?? null,
           paymentMethod,
           parcelas: paymentMethod === 'credit_card' ? parcelas : 1,
           cardData: cardPayload,
@@ -499,7 +570,7 @@ export default function CheckoutPage() {
         </button>
         {summaryOpen && (
           <div style={{ background: 'white', borderBottom: '1px solid var(--sand)', padding: '20px 5vw' }}>
-            <OrderSummary items={items} totalItems={total} selectedFrete={selectedFrete} totalFinal={totalFinal} />
+            <OrderSummary items={items} totalItems={total} selectedFrete={selectedFrete} totalFinal={totalFinal} couponInput={couponInput} setCouponInput={setCouponInput} couponData={couponData} couponError={couponError} couponLoading={couponLoading} onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon} />
           </div>
         )}
       </div>
@@ -703,7 +774,7 @@ export default function CheckoutPage() {
         <div className="checkout-summary-desktop">
           <div style={{ background: 'white', border: '1px solid var(--sand)', padding: '24px', position: 'sticky', top: 24 }}>
             <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 20 }}>Seu pedido</h3>
-            <OrderSummary items={items} totalItems={total} selectedFrete={selectedFrete} totalFinal={totalFinal} />
+            <OrderSummary items={items} totalItems={total} selectedFrete={selectedFrete} totalFinal={totalFinal} couponInput={couponInput} setCouponInput={setCouponInput} couponData={couponData} couponError={couponError} couponLoading={couponLoading} onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon} />
           </div>
         </div>
       </div>
