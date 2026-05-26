@@ -4,15 +4,18 @@ import { auth } from '@/auth'
 import { enviarEmailAtualizacaoStatus } from '@/lib/email'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-
   const { id } = await params
+  const session = await auth()
+
   const order = await prisma.order.findUnique({
     where: { id },
     include: { items: { include: { product: true } } },
   })
   if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // Usuário não logado só pode ver o status (para o polling do checkout)
+  if (!session) return NextResponse.json({ status: order.status })
+
   return NextResponse.json(order)
 }
 
