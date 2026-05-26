@@ -2,11 +2,19 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: aura-production-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Auth GCP
         uses: google-github-actions/auth@v2
@@ -20,18 +28,29 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
-          PAGARME_SECRET_KEY: ${{ secrets.PGTO_PRIVATE_KEY }}
-          PAGARME_WEBHOOK_SECRET: ${{ secrets.PAGARME_WEBHOOK_SECRET }}
+          MP_ACCESS_TOKEN: ${{ secrets.MP_ACCESS_TOKEN }}
+          MP_WEBHOOK_SECRET: ${{ secrets.MP_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_MP_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_MP_PUBLIC_KEY }}
+          PGTO_PRIVATE_KEY: ${{ secrets.PGTO_PRIVATE_KEY }}
+          PGTO_PUBLIC_KEY: ${{ secrets.PGTO_PUBLIC_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
-          echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}" > .env.local
-          echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}" >> .env.local
-          echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}" >> .env.local
-          echo "PAGARME_SECRET_KEY=${PAGARME_SECRET_KEY}" >> .env.local
-          echo "PAGARME_WEBHOOK_SECRET=${PAGARME_WEBHOOK_SECRET}" >> .env.local
-          echo "RESEND_API_KEY=${RESEND_API_KEY}" >> .env.local
-          echo "NEXT_PUBLIC_BASE_URL=https://aurapijamas.com.br" >> .env.local
+          set -e
+
+          cat > .env.local <<EOF
+          STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+          STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+          MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN}
+          MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}
+          NEXT_PUBLIC_MP_PUBLIC_KEY=${NEXT_PUBLIC_MP_PUBLIC_KEY}
+          PAGARME_SECRET_KEY=${PGTO_PRIVATE_KEY}
+          PAGARME_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}
+          PGTO_PRIVATE_KEY=${PGTO_PRIVATE_KEY}
+          PGTO_PUBLIC_KEY=${PGTO_PUBLIC_KEY}
+          RESEND_API_KEY=${RESEND_API_KEY}
+          NEXT_PUBLIC_BASE_URL=https://aurapijamas.com.br
+          EOF
+
           gcloud compute scp .env.local root@srv-qa-cvlt:/root/aura-pijamas-ecommerce/.env.local \
             --zone=southamerica-east1-a \
             --tunnel-through-iap
@@ -41,4 +60,33 @@ jobs:
           gcloud compute ssh root@srv-qa-cvlt \
             --zone=southamerica-east1-a \
             --tunnel-through-iap \
-            --command="source /root/.nvm/nvm.sh && cd /root/aura-pijamas-ecommerce && git stash && git pull --rebase && npm install && npx prisma generate && npx prisma db push --accept-data-loss && npm run build && pm2 restart aura-pijamas"
+            --command="
+              set -e
+
+              source /root/.nvm/nvm.sh
+              cd /root/aura-pijamas-ecommerce
+
+              echo 'Atualizando código para origin/main...'
+              git fetch origin
+              git checkout main
+              git reset --hard origin/main
+              git clean -fd
+
+              echo 'Instalando dependências...'
+              npm ci
+
+              echo 'Gerando Prisma Client...'
+              npx prisma generate
+
+              echo 'Aplicando migrations...'
+              npx prisma migrate deploy
+
+              echo 'Buildando aplicação...'
+              npm run build
+
+              echo 'Recarregando PM2...'
+              pm2 reload aura-pijamas --update-env
+
+              echo 'Status PM2...'
+              pm2 status
+            "
