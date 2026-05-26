@@ -3,6 +3,22 @@ import { criarPedidoPagarme } from '@/lib/pagarme'
 import { prisma } from '@/lib/prisma'
 import { enviarEmailConfirmacaoPedido } from '@/lib/email'
 
+async function decrementarEstoque(cartItems: { id: string | number; size?: string; qty: number }[]) {
+  for (const item of cartItems) {
+    const product = await prisma.product.findUnique({ where: { id: String(item.id) } })
+    if (!product) continue
+    const sizes = (product.sizes as { size: string; quantity: number }[] | null) ?? []
+    const updatedSizes = sizes.map(s =>
+      s.size === item.size ? { ...s, quantity: Math.max(0, s.quantity - item.qty) } : s
+    )
+    const newStock = updatedSizes.reduce((acc, s) => acc + s.quantity, 0)
+    await prisma.product.update({
+      where: { id: String(item.id) },
+      data: { sizes: updatedSizes, stock: newStock },
+    })
+  }
+}
+
 const SEM_JUROS = 3
 const TAXA_MENSAL = 0.0299
 
@@ -95,6 +111,9 @@ export async function POST(req: NextRequest) {
 
       enviarEmailConfirmacaoPedido(order).catch(console.error)
 
+      // Decrementa estoque imediatamente para cartão
+      decrementarEstoque(cartItems).catch(console.error)
+
       // Cartão aprovado na hora
       if (pmResult.status === 'paid') {
         return NextResponse.json({ orderId: order.id, paid: true })
@@ -159,6 +178,9 @@ export async function POST(req: NextRequest) {
     })
 
     enviarEmailConfirmacaoPedido(order).catch(console.error)
+
+    // Decrementa estoque ao gerar o PIX (reserva o item)
+    decrementarEstoque(cartItems).catch(console.error)
 
     const charge = pmResult.charges?.[0]
     const lastTx = charge?.last_transaction

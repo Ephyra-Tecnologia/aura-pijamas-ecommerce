@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createHmac } from 'crypto'
+import { enviarEmailConfirmacaoPedido } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
@@ -35,6 +36,14 @@ export async function POST(req: NextRequest) {
         where: { pagarmeId: orderId },
         data: { status: 'PAID' },
       })
+      // Envia email de confirmação ao cliente
+      const order = await prisma.order.findFirst({
+        where: { pagarmeId: orderId },
+        include: { items: { include: { product: true } } },
+      })
+      if (order) {
+        enviarEmailConfirmacaoPedido(order).catch(console.error)
+      }
       console.log('Pagar.me: pedido PAGO:', orderId)
     }
 
