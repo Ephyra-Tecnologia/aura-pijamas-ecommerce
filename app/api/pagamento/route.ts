@@ -34,15 +34,43 @@ function calcParcelas(total: number, n: number) {
   return { totalComJuros, valorParcela: pmt, juros: totalComJuros - total }
 }
 
+async function resolveCoupon(couponCode: string | null | undefined, cpf: string, subtotal: number) {
+  if (!couponCode) return { discountAmount: 0, couponCode: null }
+  const code = String(couponCode).toUpperCase()
+  const coupon = await prisma.coupon.findUnique({ where: { code } })
+  if (!coupon || !coupon.active) return { discountAmount: 0, couponCode: null }
+  if (coupon.expiresAt && coupon.expiresAt < new Date()) return { discountAmount: 0, couponCode: null }
+  if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) return { discountAmount: 0, couponCode: null }
+  if (coupon.firstOrderOnly && cpf) {
+    const cleanCpf = cpf.replace(/\D/g, '')
+    const existing = await prisma.order.findFirst({
+      where: { cpf: cleanCpf, status: { in: ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED'] } },
+    })
+    if (existing) return { discountAmount: 0, couponCode: null }
+  }
+  const discountAmount = coupon.discountType === 'percent'
+    ? (subtotal * coupon.discount) / 100
+    : Math.min(coupon.discount, subtotal)
+  return { discountAmount: Math.round(discountAmount * 100) / 100, couponCode: code }
+}
+
+async function incrementCoupon(code: string | null) {
+  if (!code) return
+  await prisma.coupon.update({ where: { code }, data: { usedCount: { increment: 1 } } })
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { customer, cartItems, shipping, paymentMethod, total, parcelas = 1, cardData } = body
+    const { customer, cartItems, shipping, paymentMethod, total, parcelas = 1, cardData, couponCode } = body
 
     if (!process.env.PAGARME_SECRET_KEY) {
       console.error('PAGARME_SECRET_KEY não configurada')
       return NextResponse.json({ error: 'Gateway de pagamento não configurado. Entre em contato conosco.' }, { status: 500 })
     }
+
+    const cpf = (customer.document ?? '').replace(/\D/g, '')
+    const { discountAmount, couponCode: validCouponCode } = await resolveCoupon(couponCode, cpf, total)
 
     // ─── Cartão via Pagar.me (parcelamento real) ──────────────────────────────
     if (paymentMethod === 'credit_card') {
@@ -96,11 +124,14 @@ export async function POST(req: NextRequest) {
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
+          cpf: cpf || null,
           zipCode: shipping.address.zip_code,
           address: shipping.address.line_1,
           city: shipping.address.city,
           state: shipping.address.state,
           pagarmeId: pmResult.id,
+          couponCode: validCouponCode,
+          discount: discountAmount,
           items: {
             create: cartItems.map((item: any) => ({
               quantity: item.qty,
@@ -114,6 +145,7 @@ export async function POST(req: NextRequest) {
       })
 
       enviarEmailConfirmacaoPedido(order).catch(console.error)
+      incrementCoupon(validCouponCode).catch(console.error)
 
       // Decrementa estoque imediatamente para cartão
       decrementarEstoque(cartItems).catch(console.error)
@@ -164,11 +196,14 @@ export async function POST(req: NextRequest) {
         name: customer.name,
         email: customer.email,
         phone: customer.phone,
+        cpf: cpf || null,
         zipCode: shipping.address.zip_code,
         address: shipping.address.line_1,
         city: shipping.address.city,
         state: shipping.address.state,
         pagarmeId: pmResult.id,
+        couponCode: validCouponCode,
+        discount: discountAmount,
         items: {
           create: cartItems.map((item: any) => ({
             quantity: item.qty,
@@ -182,6 +217,7 @@ export async function POST(req: NextRequest) {
     })
 
     enviarEmailConfirmacaoPedido(order).catch(console.error)
+    incrementCoupon(validCouponCode).catch(console.error)
 
     // Decrementa estoque ao gerar o PIX (reserva o item)
     decrementarEstoque(cartItems).catch(console.error)
