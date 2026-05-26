@@ -14,7 +14,11 @@ async function decrementarEstoque(cartItems: { id: string | number; size?: strin
     const newStock = updatedSizes.reduce((acc, s) => acc + s.quantity, 0)
     await prisma.product.update({
       where: { id: String(item.id) },
-      data: { sizes: updatedSizes, stock: newStock },
+      data: {
+        sizes: updatedSizes,
+        stock: newStock,
+        ...(newStock === 0 ? { active: false } : {}),
+      },
     })
   }
 }
