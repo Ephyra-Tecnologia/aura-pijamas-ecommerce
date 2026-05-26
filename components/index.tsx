@@ -336,6 +336,7 @@ export function ProductModal() {
   const [selectedColor, setSelectedColor] = useState(0)
   const [currentImg, setCurrentImg] = useState(0)
   const touchStartX = useRef(0)
+  const prevUrl = useRef<string | null>(null)
 
   useEffect(() => {
     if (modalProduct) {
@@ -344,8 +345,34 @@ export function ProductModal() {
       setSelectedSize(firstAvailable?.size ?? (sizes[0]?.size ?? ''))
       setSelectedColor(0)
       setCurrentImg(0)
+
+      // Atualiza a URL para o link do produto sem recarregar a página
+      if (modalProduct.slug) {
+        prevUrl.current = window.location.href
+        window.history.pushState({ modal: true }, '', `/produtos/${modalProduct.slug}`)
+      }
+    } else {
+      // Restaura a URL original ao fechar o modal
+      if (prevUrl.current) {
+        window.history.pushState({}, '', prevUrl.current)
+        prevUrl.current = null
+      }
     }
   }, [modalProduct])
+
+  // Fecha o modal se o usuário apertar "voltar" no navegador
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      if (e.state?.modal) return
+      const { modalProduct: mp } = useUIStore.getState()
+      if (mp) {
+        prevUrl.current = null
+        useUIStore.getState().closeModal()
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   if (!modalProduct) return null
 
