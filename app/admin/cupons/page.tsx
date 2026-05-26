@@ -73,20 +73,25 @@ export default function CuponsPage() {
     if (!form.code.trim()) { setError('Código obrigatório.'); return }
     if (!form.discount) { setError('Desconto obrigatório.'); return }
     setSaving(true)
-    const body = {
-      ...form,
-      discount: parseFloat(form.discount as string),
-      maxUses: form.maxUses ? parseInt(form.maxUses as string) : null,
-      expiresAt: form.expiresAt || null,
+    try {
+      const body = {
+        ...form,
+        discount: parseFloat(form.discount as string),
+        maxUses: form.maxUses ? parseInt(form.maxUses as string) : null,
+        expiresAt: form.expiresAt || null,
+      }
+      const res = editing
+        ? await fetch(`/api/admin/cupons/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        : await fetch('/api/admin/cupons', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Erro ao salvar.'); return }
+      setModalOpen(false)
+      load()
+    } catch {
+      setError('Erro de conexão. Tente novamente.')
+    } finally {
+      setSaving(false)
     }
-    const res = editing
-      ? await fetch(`/api/admin/cupons/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      : await fetch('/api/admin/cupons', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error ?? 'Erro ao salvar.'); setSaving(false); return }
-    setModalOpen(false)
-    load()
-    setSaving(false)
   }
 
   const toggle = async (c: Coupon) => {
