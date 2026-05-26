@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
+import { enviarEmailAtualizacaoStatus } from '@/lib/email'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -20,11 +21,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
   const { id } = await params
-  const { status } = await req.json()
+  const { status, trackingCode } = await req.json()
   const order = await prisma.order.update({
     where: { id },
     data: { status },
   })
+
+  // Envia e-mail de atualização para o cliente (só para status relevantes)
+  const notifyStatuses = ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+  if (notifyStatuses.includes(status)) {
+    enviarEmailAtualizacaoStatus({ ...order, trackingCode: trackingCode ?? null }).catch(console.error)
+  }
+
   return NextResponse.json(order)
 }
 

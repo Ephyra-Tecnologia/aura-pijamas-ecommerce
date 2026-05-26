@@ -23,6 +23,7 @@ interface Order {
     id: string
     quantity: number
     price: number
+    size?: string | null
     product: { name: string; images: string[] }
   }[]
 }
@@ -43,6 +44,7 @@ export default function AdminPedidoDetalhe() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<OrderStatus>('PENDING')
+  const [trackingCode, setTrackingCode] = useState('')
 
   useEffect(() => {
     fetch(`/api/pedidos/${params.id}`)
@@ -59,10 +61,11 @@ export default function AdminPedidoDetalhe() {
     await fetch(`/api/pedidos/${params.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, trackingCode: trackingCode || null }),
     })
     setSaving(false)
-    router.refresh()
+    setOrder(prev => prev ? { ...prev, status } : prev)
+    alert('Status atualizado! E-mail enviado para o cliente.')
   }
 
   const fmt = (n: number) => 'R$ ' + n.toFixed(2).replace('.', ',')
@@ -112,7 +115,10 @@ export default function AdminPedidoDetalhe() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16 }}>{item.product.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--stone)' }}>Qtd: {item.quantity}</div>
+                <div style={{ fontSize: 12, color: 'var(--stone)', marginTop: 2 }}>
+                  {item.size && <span style={{ marginRight: 8 }}>Tam. <strong>{item.size}</strong></span>}
+                  Qtd: {item.quantity}
+                </div>
               </div>
               <div style={{ fontSize: 14, color: 'var(--earth)' }}>{fmt(item.price * item.quantity)}</div>
             </div>
@@ -125,23 +131,33 @@ export default function AdminPedidoDetalhe() {
         {/* Status */}
         <div style={{ background: 'white', border: '1px solid var(--sand)', padding: 24 }}>
           <h3 style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 16 }}>Atualizar status</h3>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <select
               value={status}
               onChange={e => setStatus(e.target.value as OrderStatus)}
-              style={{ flex: 1, background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
+              style={{ background: 'white', border: '1px solid var(--sand)', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
             >
               {STATUS_OPTIONS.map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
-            <button
-              onClick={updateStatus}
-              disabled={saving}
-              style={{ background: 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '12px 24px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}
-            >
-              {saving ? 'Salvando...' : 'Salvar'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="text"
+                placeholder="Código de rastreio (opcional — aparece no e-mail)"
+                value={trackingCode}
+                onChange={e => setTrackingCode(e.target.value)}
+                style={{ flex: 1, background: 'white', border: '1px solid var(--sand)', padding: '10px 14px', fontSize: 13, fontFamily: 'var(--font-sans)', outline: 'none', color: 'var(--dark)' }}
+              />
+              <button
+                onClick={updateStatus}
+                disabled={saving}
+                style={{ background: 'var(--dark)', color: 'var(--cream)', border: 'none', padding: '12px 24px', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)', cursor: 'pointer', opacity: saving ? 0.7 : 1, whiteSpace: 'nowrap' }}
+              >
+                {saving ? 'Salvando...' : 'Salvar e notificar'}
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--stone)', margin: 0 }}>Um e-mail será enviado automaticamente para o cliente ao salvar.</p>
           </div>
         </div>
     </div>

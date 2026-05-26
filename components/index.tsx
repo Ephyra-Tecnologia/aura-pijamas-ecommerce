@@ -489,7 +489,19 @@ export function ProductModal() {
             style={{ opacity: outOfStock ? 0.5 : 1, cursor: outOfStock ? 'not-allowed' : 'pointer' }}>
             {outOfStock ? 'Tamanho esgotado' : 'Adicionar ao carrinho'}
           </button>
-          <button className="btn-wishlist">♡ &nbsp;Salvar na lista de desejos</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-wishlist" style={{ flex: 1 }}>♡ &nbsp;Salvar na lista de desejos</button>
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/produtos/${modalProduct.slug}`
+                navigator.clipboard.writeText(url).then(() => showToast('Link copiado! ✦'))
+              }}
+              style={{ padding: '12px 16px', background: 'none', border: '1px solid var(--sand)', cursor: 'pointer', fontSize: 16, color: 'var(--stone)', transition: 'all 0.2s', flexShrink: 0 }}
+              title="Copiar link do produto"
+            >
+              🔗
+            </button>
+          </div>
         </div>
       </div>
     </div>

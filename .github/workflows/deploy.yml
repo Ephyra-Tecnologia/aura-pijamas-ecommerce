@@ -23,12 +23,14 @@ jobs:
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           PAGARME_SECRET_KEY: ${{ secrets.PGTO_PRIVATE_KEY }}
           PAGARME_WEBHOOK_SECRET: ${{ secrets.PAGARME_WEBHOOK_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}" > .env.local
           echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}" >> .env.local
           echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}" >> .env.local
           echo "PAGARME_SECRET_KEY=${PAGARME_SECRET_KEY}" >> .env.local
           echo "PAGARME_WEBHOOK_SECRET=${PAGARME_WEBHOOK_SECRET}" >> .env.local
+          echo "RESEND_API_KEY=${RESEND_API_KEY}" >> .env.local
           echo "NEXT_PUBLIC_BASE_URL=https://aurapijamas.com.br" >> .env.local
           gcloud compute scp .env.local root@srv-qa-cvlt:/root/aura-pijamas-ecommerce/.env.local \
             --zone=southamerica-east1-a \

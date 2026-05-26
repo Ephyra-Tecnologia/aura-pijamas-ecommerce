@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { criarPedidoPagarme } from '@/lib/pagarme'
 import { prisma } from '@/lib/prisma'
+import { enviarEmailConfirmacaoPedido } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,10 +44,12 @@ export async function POST(req: NextRequest) {
             create: cartItems.map((item: any) => ({
               quantity: item.qty,
               price: item.price,
+              size: item.size ?? null,
               productId: String(item.id),
             })),
           },
         },
+        include: { items: { include: { product: true } } },
       })
 
       const lineItems: any[] = cartItems.map((item: any) => ({
@@ -159,11 +162,16 @@ export async function POST(req: NextRequest) {
           create: cartItems.map((item: any) => ({
             quantity: item.qty,
             price: item.price,
+            size: item.size ?? null,
             productId: String(item.id),
           })),
         },
       },
+      include: { items: { include: { product: true } } },
     })
+
+    // E-mail de confirmação
+    enviarEmailConfirmacaoPedido(order).catch(console.error)
 
     // Extrai QR code do Pagar.me
     const charge = pmResult.charges?.[0]
