@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { createHmac } from 'crypto'
 import { enviarEmailConfirmacaoPedido } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
-
-  // Verifica assinatura do webhook — só valida se o header vier no request
-  const webhookSecret = process.env.PAGARME_WEBHOOK_SECRET
-  const signature = req.headers.get('x-hub-signature')
-  if (webhookSecret && signature) {
-    const expected = 'sha1=' + createHmac('sha1', webhookSecret).update(rawBody).digest('hex')
-    if (signature !== expected) {
-      console.error('Pagar.me webhook: assinatura inválida')
-      return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
-    }
-  }
 
   let event: any
   try {
