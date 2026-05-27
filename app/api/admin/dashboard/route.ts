@@ -125,17 +125,18 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  const paidOrders = orders.filter(o => ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED'].includes(o.status))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paidOrders: any[] = orders.filter((o: any) => ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED'].includes(o.status))
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
-  const faturamento = paidOrders.reduce((s, o) => s + o.total, 0)
-  const faturamentoAnterior = prevOrders.reduce((s, o) => s + o.total, 0)
+  const faturamento: number = paidOrders.reduce((s: number, o: any) => s + o.total, 0)
+  const faturamentoAnterior: number = prevOrders.reduce((s: number, o: any) => s + o.total, 0)
   const totalPedidos = orders.length
   const totalPedidosAnterior = prevOrders.length
   const ticketMedio = paidOrders.length > 0 ? faturamento / paidOrders.length : 0
 
-  const unidadesVendidas = paidOrders.reduce((sum, o) =>
-    sum + o.items.reduce((s, i) => s + i.quantity, 0), 0)
+  const unidadesVendidas: number = paidOrders.reduce((sum: number, o: any) =>
+    sum + o.items.reduce((s: number, i: any) => s + i.quantity, 0), 0)
 
   const variacaoFaturamento = faturamentoAnterior > 0
     ? ((faturamento - faturamentoAnterior) / faturamentoAnterior) * 100
@@ -150,8 +151,8 @@ export async function GET(req: NextRequest) {
 
   // ── Top produtos mais vendidos ─────────────────────────────────────────────
   const produtoMap: Record<string, { name: string; image: string; vendas: number; receita: number }> = {}
-  paidOrders.forEach(order => {
-    order.items.forEach(item => {
+  paidOrders.forEach((order: any) => {
+    order.items.forEach((item: any) => {
       const id = item.productId
       if (!produtoMap[id]) {
         produtoMap[id] = {
@@ -170,7 +171,7 @@ export async function GET(req: NextRequest) {
     .slice(0, 5)
 
   // ── Pedidos recentes ────────────────────────────────────────────────────────
-  const pedidosRecentes = orders.slice(0, 8).map(o => ({
+  const pedidosRecentes = (orders as any[]).slice(0, 8).map((o: any) => ({
     id: o.id,
     name: o.name,
     email: o.email,
@@ -181,11 +182,11 @@ export async function GET(req: NextRequest) {
   }))
 
   // ── Estoque baixo ───────────────────────────────────────────────────────────
-  const estoqueBaixo = allProducts
-    .filter(p => p.active && p.stock <= 5)
-    .sort((a, b) => a.stock - b.stock)
+  const estoqueBaixo = (allProducts as any[])
+    .filter((p: any) => p.active && p.stock <= 5)
+    .sort((a: any, b: any) => a.stock - b.stock)
     .slice(0, 5)
-    .map(p => ({ id: p.id, name: p.name, stock: p.stock, image: p.images?.[0] ?? '' }))
+    .map((p: any) => ({ id: p.id, name: p.name, stock: p.stock, image: p.images?.[0] ?? '' }))
 
   // ── Insights ────────────────────────────────────────────────────────────────
   const insights: string[] = []
@@ -216,7 +217,7 @@ export async function GET(req: NextRequest) {
       unidadesVendidas,
       pedidosPendentes: pendingOrders.length,
       pedidosPagos: paidOrders.length,
-      totalProdutosAtivos: allProducts.filter(p => p.active).length,
+      totalProdutosAtivos: (allProducts as any[]).filter((p: any) => p.active).length,
     },
     grafico,
     topProdutos,

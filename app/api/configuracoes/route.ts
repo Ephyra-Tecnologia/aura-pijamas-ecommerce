@@ -5,7 +5,7 @@ import { auth } from '@/auth'
 export async function GET() {
   const settings = await prisma.setting.findMany()
   const result: Record<string, string> = {}
-  settings.forEach(s => { result[s.key] = s.value })
+  settings.forEach((s: { key: string; value: string }) => { result[s.key] = s.value })
   return NextResponse.json(result)
 }
 
