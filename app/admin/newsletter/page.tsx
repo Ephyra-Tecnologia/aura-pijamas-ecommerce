@@ -55,31 +55,40 @@ const TEMPLATE_BASE = `<!DOCTYPE html>
 </body>
 </html>`
 
+type Segment = 'all' | 'buyers' | 'newsletter_only'
+
+const SEGMENT_LABELS: Record<Segment, string> = {
+  all:              'Todos',
+  buyers:           '🛍 Compradores',
+  newsletter_only:  '💌 Só newsletter',
+}
+
 function NewsletterForm() {
   const searchParams = useSearchParams()
-  const idsParam = searchParams.get('ids')
+  const idsParam   = searchParams.get('ids')
+  const segParam   = (searchParams.get('segment') as Segment) || 'all'
 
   const [subject, setSubject] = useState('')
   const [html, setHtml] = useState(TEMPLATE_BASE)
   const [tab, setTab] = useState<'editor' | 'preview'>('editor')
+  const [segment, setSegment] = useState<Segment>(idsParam ? 'all' : segParam)
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ sent: number; failed: number; total: number } | null>(null)
   const [error, setError] = useState('')
-  const [recipientCount, setRecipientCount] = useState<number | null>(null)
+  const [counts, setCounts] = useState<Record<Segment, number>>({ all: 0, buyers: 0, newsletter_only: 0 })
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     fetch('/api/admin/clientes')
       .then(r => r.json())
-      .then(data => {
-        if (idsParam) {
-          const ids = idsParam.split(',')
-          setRecipientCount(ids.length)
-        } else {
-          setRecipientCount(data.filter((s: any) => s.active).length)
-        }
+      .then((data: any[]) => {
+        setCounts({
+          all: data.length,
+          buyers: data.filter(c => c.hasPurchased).length,
+          newsletter_only: data.filter(c => c.source === 'newsletter' && !c.hasPurchased).length,
+        })
       })
-  }, [idsParam])
+  }, [])
 
   useEffect(() => {
     if (tab === 'preview' && iframeRef.current) {
@@ -87,6 +96,8 @@ function NewsletterForm() {
       if (doc) { doc.open(); doc.write(html); doc.close() }
     }
   }, [tab, html])
+
+  const recipientCount = idsParam ? idsParam.split(',').length : counts[segment]
 
   const send = async () => {
     if (!subject.trim()) { setError('Insira o assunto do e-mail.'); return }
@@ -97,6 +108,7 @@ function NewsletterForm() {
 
     const body: any = { subject, html }
     if (idsParam) body.recipientIds = idsParam.split(',')
+    else body.segment = segment
 
     const res = await fetch('/api/admin/newsletter', {
       method: 'POST',
@@ -127,9 +139,23 @@ function NewsletterForm() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 26, fontWeight: 300, color: '#2C2420', margin: 0 }}>Enviar Newsletter</h1>
         <p style={{ fontSize: 13, color: '#8C7B6B', margin: '4px 0 0' }}>
-          {idsParam ? `Enviando para ${recipientCount ?? '…'} inscrito(s) selecionado(s)` : `Enviando para todos os inscritos ativos${recipientCount !== null ? ` (${recipientCount})` : ''}`}
+          {idsParam
+            ? `${recipientCount} destinatário(s) selecionados manualmente`
+            : `${recipientCount} destinatário(s) · segmento: ${SEGMENT_LABELS[segment]}`}
         </p>
       </div>
+
+      {/* Segmento — só aparece se não veio com IDs fixos */}
+      {!idsParam && (
+        <div style={{ display: 'flex', gap: 0, marginBottom: 20 }}>
+          {(Object.keys(SEGMENT_LABELS) as Segment[]).map(s => (
+            <button key={s} onClick={() => setSegment(s)}
+              style={{ padding: '8px 18px', background: segment === s ? '#2C2420' : 'transparent', color: segment === s ? '#fff' : '#8C7B6B', border: '1px solid #e8ddd0', cursor: 'pointer', fontSize: 12, letterSpacing: '0.08em' }}>
+              {SEGMENT_LABELS[s]} ({counts[s]})
+            </button>
+          ))}
+        </div>
+      )}
 
       {result ? (
         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: 24, borderRadius: 2, marginBottom: 24 }}>
