@@ -176,3 +176,36 @@ export async function enviarEmailAtualizacaoStatus(order: {
     html: baseTemplate(content),
   })
 }
+
+export async function enviarEmailBoasVindasNewsletter(name: string | null, email: string) {
+  if (!process.env.RESEND_API_KEY) return
+
+  const firstName = name?.split(' ')[0] || 'você'
+
+  const content = `
+    <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:300;color:#2C2420;margin:0 0 8px;">Bem-vinda ao universo Aura 🌙</h1>
+    <p style="font-size:13px;color:#8C7B6B;margin:0 0 32px;">Olá, ${firstName}! Que bom ter você aqui.</p>
+
+    <p style="font-size:14px;color:#4A3F35;line-height:1.8;margin:0 0 24px;">
+      Você agora faz parte da nossa lista exclusiva e será a primeira a saber sobre<br/>
+      lançamentos, novidades e ofertas especiais da Aura Pijamas.
+    </p>
+
+    <div style="background:#F5F0EB;padding:20px;border-radius:2px;margin-bottom:32px;text-align:center;">
+      <p style="font-family:Georgia,serif;font-size:16px;color:#2C2420;margin:0 0 16px;font-style:italic;">
+        "Conforto, presença e o prazer de estar em casa."
+      </p>
+      <a href="https://aurapijamas.com.br/colecoes" style="display:inline-block;background:#2C2420;color:#F5F0EB;padding:12px 28px;text-decoration:none;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;">
+        Ver coleção
+      </a>
+    </div>
+
+    <p style="font-size:13px;color:#8C7B6B;margin:0;">Com carinho,<br/>Equipe Aura Pijamas 🌙</p>`
+
+  await getResend().emails.send({
+    from: FROM,
+    to: email,
+    subject: 'Bem-vinda ao universo Aura Pijamas 🌙',
+    html: baseTemplate(content),
+  })
+}
