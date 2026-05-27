@@ -102,3 +102,11 @@ model Setting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

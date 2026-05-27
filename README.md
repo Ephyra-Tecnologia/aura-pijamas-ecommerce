@@ -13,17 +13,22 @@
 ## ✨ Features
 
 - **Loja completa** — catálogo com filtro por categoria, modal de produto com galeria de imagens (swipe mobile), carrinho com persistência
+- **Páginas de produto** — URL única por produto (`/produtos/slug`) com galeria, tamanhos e SEO/OG tags para compartilhamento
 - **Checkout responsivo** — formulário em 3 etapas, busca de CEP via ViaCEP, cálculo de frete
-- **Pagamentos híbridos** — Pix via MercadoPago + Cartão via Stripe (Checkout hospedado)
-- **Galeria de imagens** — swipe no mobile, miniaturas no desktop
-- **Tabela de medidas** — embutida no modal de produto
-- **Admin completo** — CRUD de produtos, pedidos, categorias, banners e configurações
+- **Pagamentos via Pagar.me** — Pix com QR code + Cartão de crédito com parcelamento real (até 10x, 2x ou 3x sem juros conforme valor)
+- **Cupons de desconto** — criação e validação de cupons no admin, aplicados no checkout
+- **E-mails transacionais** — confirmação de pedido e atualização de status via Resend
+- **Gestão de estoque** — decremento automático por tamanho após compra; produto desativado ao zerar
+- **Soft delete de produtos** — produtos excluídos ficam visíveis apenas no admin para histórico de pedidos
+- **Galeria de imagens** — swipe no mobile, setas e miniaturas no desktop
+- **Tabela de medidas** — embutida no modal e na página do produto
+- **Admin completo** — CRUD de produtos, pedidos, categorias, cupons, banners e configurações
+- **Rastreio de pedidos** — código de rastreio no admin, exibido no e-mail de envio
 - **Ordenação de produtos** — arrasta ou usa setas ↑↓ no painel admin
 - **Múltiplas categorias** — relação many-to-many, nav dinâmico gerado a partir das categorias
 - **Upload de imagens** — Google Cloud Storage
 - **Botão WhatsApp flutuante** — com mensagem pré-preenchida
 - **Páginas de conteúdo** — A Aura, Trocas e Devoluções, Cuidados com as Peças
-- **Fontes customizadas** — Eyesome (display) + Cormorant Garamond + Jost
 - **Deploy automatizado** — GitHub Actions via IAP Tunnel para GCP
 
 ---
@@ -33,17 +38,17 @@
 | Camada | Tecnologia |
 |---|---|
 | Frontend + API | Next.js 16 (App Router) |
-| Linguagem | TypeScript |
+| Linguagem | TypeScript 5 |
 | Banco de dados | PostgreSQL 16 |
 | ORM | Prisma 7 |
 | Estilização | CSS customizado (design próprio) |
 | Autenticação | NextAuth.js v5 |
 | Estado global | Zustand |
 | Storage | Google Cloud Storage |
-| Pagamento (Pix) | MercadoPago |
-| Pagamento (Cartão) | Stripe Checkout |
+| Pagamento | Pagar.me v5 (Pix + Cartão parcelado) |
+| E-mail | Resend |
 | Servidor | GCP VM (Ubuntu 22.04) |
-| Proxy | Caddy (SSL automático) |
+| Proxy reverso | Caddy (SSL automático) |
 | Process manager | PM2 |
 | CDN | Cloudflare |
 | CI/CD | GitHub Actions |
@@ -58,15 +63,16 @@ O deploy é automático via **GitHub Actions** a cada push na branch `main`.
 push main → GitHub Actions → IAP Tunnel → GCP VM → build + restart
 ```
 
-Para fazer deploy manual:
+Para fazer deploy manual no servidor:
 
 ```bash
 cd /root/aura-pijamas-ecommerce
-git pull
-npm install
+git fetch origin && git reset --hard origin/main
+npm ci
 npx prisma generate
+npx prisma migrate deploy
 npm run build
-pm2 restart aura-pijamas
+pm2 reload aura-pijamas --update-env
 ```
 
 ---
@@ -85,8 +91,9 @@ pm2 restart aura-pijamas
 git clone git@github.com:heyconche/aura-pijamas-ecommerce.git
 cd aura-pijamas-ecommerce
 npm install
-cp .env.example .env
-# Edite o .env com suas credenciais
+cp .env.example .env.local
+# Edite o .env.local com suas credenciais
+npx prisma generate
 npx prisma migrate dev
 npm run dev
 ```
@@ -98,23 +105,25 @@ npm run dev
 DATABASE_URL="postgresql://user:password@localhost:5432/ecommerce_db"
 
 # Auth
-BETTER_AUTH_SECRET="seu_secret_aqui"
-ADMIN_EMAIL="admin@aurapijamas.com.br"
-ADMIN_PASSWORD="sua_senha_aqui"
+AUTH_SECRET="string_aleatoria_longa"
 
 # Google Cloud Storage
 GCS_BUCKET_NAME="nome-do-bucket"
 GCS_PROJECT_ID="seu-projeto"
-GCS_CLIENT_EMAIL="sa@projeto.iam.gserviceaccount.com"
-GCS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
+GCS_KEY_FILE="/caminho/para/gcs-credentials.json"
 
-# Stripe (cartão de crédito)
+# Pagar.me (Pix + Cartão parcelado)
+PAGARME_SECRET_KEY="sk_..."
+PAGARME_WEBHOOK_SECRET="..."
+PGTO_PRIVATE_KEY="sk_..."
+PGTO_PUBLIC_KEY="pk_..."
+
+# Resend (e-mails transacionais)
+RESEND_API_KEY="re_..."
+
+# Stripe (legado — não utilizado ativamente)
 STRIPE_SECRET_KEY="sk_live_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
-
-# MercadoPago (Pix)
-MP_ACCESS_TOKEN="APP_USR-..."
-MP_WEBHOOK_SECRET="seu_webhook_secret"
 
 # URL pública
 NEXT_PUBLIC_BASE_URL="https://aurapijamas.com.br"
@@ -127,31 +136,38 @@ NEXT_PUBLIC_BASE_URL="https://aurapijamas.com.br"
 ```
 aura-pijamas-ecommerce/
 ├── app/
-│   ├── page.tsx             # Home
-│   ├── colecoes/            # Catálogo com filtro por categoria
-│   ├── checkout/            # Checkout em 3 etapas + Pix + Stripe
-│   │   ├── sucesso/         # Pós-pagamento aprovado
-│   │   ├── pendente/        # Pós-pagamento pendente
-│   │   └── cancelado/       # Pós-pagamento cancelado
-│   ├── a-aura/              # Sobre a marca
-│   ├── trocas-devolucoes/   # Política de trocas
-│   ├── cuidados/            # Cuidados com as peças
-│   ├── admin/               # Painel administrativo
-│   │   ├── produtos/        # CRUD + ordenação
-│   │   ├── pedidos/         # Gestão de pedidos
-│   │   ├── categorias/      # CRUD de categorias
-│   │   └── configuracoes/   # Banners e textos
-│   └── api/                 # API Routes
-│       ├── produtos/        # CRUD + reorder
-│       ├── pedidos/         # CRUD pedidos
-│       ├── categorias/      # CRUD categorias
-│       ├── upload/          # Upload GCS
-│       └── pagamento/       # Stripe + MercadoPago + Webhooks
-├── components/              # Header, Footer, ProductModal, CartDrawer, WhatsAppButton...
-├── lib/                     # Prisma, Stripe, MercadoPago, Storage
-├── store/                   # Estado global (Zustand)
-├── prisma/                  # Schema
-└── public/                  # Assets, fontes (Eyesome)
+│   ├── page.tsx                  # Home
+│   ├── colecoes/                 # Catálogo com filtro por categoria
+│   ├── produtos/[slug]/          # Página de produto (SEO + OG)
+│   ├── checkout/                 # Checkout em 3 etapas + Pix + Cartão
+│   │   ├── sucesso/              # Pós-pagamento aprovado
+│   │   ├── pendente/             # Pós-pagamento pendente
+│   │   └── cancelado/            # Pós-pagamento cancelado
+│   ├── a-aura/                   # Sobre a marca
+│   ├── trocas-devolucoes/        # Política de trocas
+│   ├── cuidados/                 # Cuidados com as peças
+│   ├── admin/                    # Painel administrativo (protegido)
+│   │   ├── produtos/             # CRUD + soft delete + ordenação
+│   │   ├── pedidos/              # Gestão + status + rastreio
+│   │   ├── categorias/           # CRUD de categorias
+│   │   ├── cupons/               # CRUD de cupons de desconto
+│   │   └── configuracoes/        # Banners e textos da home
+│   └── api/
+│       ├── produtos/             # CRUD + reorder + soft delete
+│       ├── pedidos/              # CRUD + status + e-mail
+│       ├── categorias/           # CRUD categorias
+│       ├── cupons/[code]/        # Validação pública de cupom
+│       ├── admin/cupons/         # CRUD admin de cupons
+│       ├── upload/               # Upload para GCS
+│       └── pagamento/
+│           ├── route.ts          # Pagar.me — Pix e Cartão
+│           ├── webhook/          # Webhook unificado (Pagar.me + Stripe)
+│           └── webhook-pagarme/  # Webhook Pagar.me dedicado
+├── components/                   # Header, Footer, ProductModal, CartDrawer...
+├── lib/                          # Prisma, Pagar.me, Resend, Storage, Email
+├── store/                        # Estado global (Zustand)
+├── prisma/                       # Schema + migrations
+└── public/                       # Assets, fontes (Eyesome)
 ```
 
 ---
@@ -168,6 +184,7 @@ GCP VM e2-small (Ubuntu 22.04)
 
 GCP Cloud NAT (saída para internet)
 GCP Cloud Storage (imagens dos produtos)
+GCP IAP Tunnel (acesso SSH seguro para CI/CD)
 ```
 
 ---
@@ -182,10 +199,13 @@ pm2 logs aura-pijamas
 pm2 status
 
 # Reiniciar com novas env vars
-pm2 restart aura-pijamas --update-env
+pm2 reload aura-pijamas --update-env
 
 # Abrir Prisma Studio
 npx prisma studio
+
+# Aplicar migrations em produção
+npx prisma migrate deploy
 ```
 
 ---

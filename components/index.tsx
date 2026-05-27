@@ -105,11 +105,24 @@ export function Features() {
 export function Newsletter() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const handleSubmit = (e: React.FormEvent) => {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    alert('Obrigada! Em breve você receberá nossas novidades.')
-    setName(''); setEmail('')
+    setStatus('loading')
+    try {
+      await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email }),
+      })
+      setStatus('done')
+      setName(''); setEmail('')
+    } catch {
+      setStatus('error')
+    }
   }
+
   return (
     <section className="newsletter">
       <div>
@@ -117,9 +130,18 @@ export function Newsletter() {
       </div>
       <form className="newsletter-form" onSubmit={handleSubmit}>
         <p style={{ fontSize: 13, color: 'rgba(232,221,208,0.7)', lineHeight: 1.7 }}>Receba novidades, lançamentos exclusivos e ofertas especiais antes de todo mundo.</p>
-        <input className="newsletter-input" type="text" placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} />
-        <input className="newsletter-input" type="email" placeholder="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} required />
-        <button type="submit" className="newsletter-submit">Quero participar</button>
+        {status === 'done' ? (
+          <p style={{ fontSize: 14, color: '#E8DDD0', lineHeight: 1.7, padding: '16px 0' }}>Obrigada! Em breve você receberá nossas novidades. 🌙</p>
+        ) : (
+          <>
+            <input className="newsletter-input" type="text" placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} />
+            <input className="newsletter-input" type="email" placeholder="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} required />
+            <button type="submit" className="newsletter-submit" disabled={status === 'loading'}>
+              {status === 'loading' ? 'Aguarde...' : 'Quero participar'}
+            </button>
+            {status === 'error' && <p style={{ fontSize: 12, color: '#f87171', marginTop: 8 }}>Erro ao cadastrar. Tente novamente.</p>}
+          </>
+        )}
       </form>
     </section>
   )
