@@ -1,11 +1,12 @@
 import { Storage } from '@google-cloud/storage'
 
-const storage = new Storage({
-  projectId: process.env.GCS_PROJECT_ID,
-  keyFilename: process.env.GCS_KEY_FILE || '/root/gcs-credentials.json',
-})
-
-const bucket = storage.bucket(process.env.GCS_BUCKET_NAME!)
+function getBucket() {
+  const storage = new Storage({
+    projectId: process.env.GCS_PROJECT_ID,
+    keyFilename: process.env.GCS_KEY_FILE || '/root/gcs-credentials.json',
+  })
+  return storage.bucket(process.env.GCS_BUCKET_NAME!)
+}
 
 export async function uploadImage(
   file: Buffer,
@@ -13,7 +14,7 @@ export async function uploadImage(
   mimetype: string
 ): Promise<string> {
   const uniqueName = `produtos/${Date.now()}-${filename}`
-  const blob = bucket.file(uniqueName)
+  const blob = getBucket().file(uniqueName)
 
   await blob.save(file, {
     contentType: mimetype,
