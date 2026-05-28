@@ -12,6 +12,7 @@ interface Order {
   email: string
   city: string
   state: string
+  source?: string
   createdAt: string
   items: { quantity: number; product: { name: string } }[]
 }
@@ -51,7 +52,12 @@ export default function AdminPedidos() {
 
   return (
     <div style={{ padding: '48px 40px' }}>
-      <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, marginBottom: 32 }}>Pedidos</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, margin: 0 }}>Pedidos</h1>
+        <Link href="/admin/pedidos/novo" style={{ padding: '10px 20px', background: '#2C2420', color: '#fff', textDecoration: 'none', fontSize: 12, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          + Novo pedido
+        </Link>
+      </div>
 
       {loading ? (
         <p style={{ color: 'var(--stone)', fontSize: 14 }}>Carregando...</p>
@@ -64,7 +70,7 @@ export default function AdminPedidos() {
         <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', border: '1px solid var(--sand)' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--sand)' }}>
-              {['Pedido', 'Cliente', 'Itens', 'Total', 'Status', 'Data', 'Ações'].map(h => (
+              {['Pedido', 'Cliente', 'Origem', 'Itens', 'Total', 'Status', 'Data', 'Ações'].map(h => (
                 <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--stone)', fontWeight: 400 }}>{h}</th>
               ))}
             </tr>
@@ -78,6 +84,12 @@ export default function AdminPedidos() {
                   <td style={{ padding: '16px' }}>
                     <div style={{ fontSize: 14, color: 'var(--dark)' }}>{o.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--stone)' }}>{o.email}</div>
+                  </td>
+                  <td style={{ padding: '16px' }}>
+                    {o.source === 'MANUAL'
+                      ? <span style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', background: '#fef3e2', color: '#b45309', border: '1px solid #fde68a' }}>📋 Manual</span>
+                      : <span style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}>🌐 Site</span>
+                    }
                   </td>
                   <td style={{ padding: '16px', fontSize: 13, color: 'var(--stone)' }}>{o.items.length} {o.items.length === 1 ? 'item' : 'itens'}</td>
                   <td style={{ padding: '16px', fontSize: 14, color: 'var(--earth)' }}>{fmt(o.total)}</td>

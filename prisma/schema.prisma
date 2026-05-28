@@ -45,6 +45,8 @@ model Order {
   city        String
   state       String
   pagarmeId   String?
+  source      String      @default("ONLINE")
+  notes       String?
   couponCode  String?
   discount    Float       @default(0)
   coupon      Coupon?     @relation(fields: [couponCode], references: [code])
